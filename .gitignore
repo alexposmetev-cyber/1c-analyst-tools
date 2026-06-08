@@ -1,0 +1,48 @@
+# Секреты и артефакты сессий
+.env
+.env.local
+.env.*
+!.env.example
+session.env
+session-prompt.md
+opencode.local.json
+.onec-session.json
+.onec-web.json
+
+# Python
+mcp/.venv/
+mcp/__pycache__/
+*.pyc
+
+# Вывод и логи
+output/
+!output/.gitkeep
+
+# Метаданные и дампы (локальные, не для репозитория)
+metadata/cache/
+metadata/module-cache/
+metadata/config-dump/
+metadata/config-sources/
+metadata/library/*
+!metadata/library/.gitkeep
+
+# Локальные настройки сессий 1С
+.onec-config-sources.json
+.onec-investigation.json
+
+# Obsidian vault (пользовательские заметки)
+.Obsidian/*
+!.Obsidian/.gitkeep
+Obsidian/
+
+# OpenCode
+bin/opencode.exe
+.opencode/node_modules/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+!.vscode/settings.json

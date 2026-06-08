@@ -1,0 +1,22 @@
+{
+  "id": "5c8465b9f4e2",
+  "createdAt": "2026-06-08T11:00:22.789569+03:00",
+  "configurationName": "",
+  "configurationVersion": "unknown",
+  "symptom": "Test2",
+  "symptomTags": [],
+  "wrongApproach": "",
+  "correctSolution": "",
+  "queriesUsed": [],
+  "objectsUsed": [],
+  "contextSummary": "ctx",
+  "investigationPath": "",
+  "methodsApplied": [],
+  "hypotheses": "",
+  "sourcesUsed": [],
+  "checklist": "",
+  "chronology": [],
+  "status": "draft",
+  "verifiedByAnalyst": true,
+  "updatedAt": "2026-06-08T11:00:22.789621+03:00"
+}

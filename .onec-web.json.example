@@ -1,0 +1,16 @@
+{
+  "its": {
+    "user": "YOUR_ITS_LOGIN",
+    "password": "YOUR_ITS_PASSWORD",
+    "login_url": "https://login.1c.ru/login",
+    "service_url": "https://its.1c.ru/login/cas"
+  },
+  "forum_sites": [
+    "infostart.ru",
+    "forum.mista.ru",
+    "forum.infostart.ru",
+    "kb.1c.ru"
+  ],
+  "timeout_seconds": 30,
+  "verify_ssl": true
+}

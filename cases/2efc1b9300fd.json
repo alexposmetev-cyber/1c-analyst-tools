@@ -1,0 +1,30 @@
+{
+  "id": "2efc1b9300fd",
+  "createdAt": "2026-06-08T11:00:59.099902+03:00",
+  "configurationName": "",
+  "configurationVersion": "unknown",
+  "symptom": "Test4",
+  "symptomTags": [],
+  "wrongApproach": "",
+  "correctSolution": "",
+  "queriesUsed": [],
+  "objectsUsed": [],
+  "contextSummary": "ctx",
+  "investigationPath": "",
+  "methodsApplied": [
+    "ITS",
+    "xml"
+  ],
+  "hypotheses": "",
+  "sourcesUsed": [],
+  "checklist": "",
+  "chronology": [
+    {
+      "at": "2026-06-08T11:00:59.101577+03:00",
+      "text": "user asked more"
+    }
+  ],
+  "status": "draft",
+  "verifiedByAnalyst": true,
+  "updatedAt": "2026-06-08T11:00:59.101612+03:00"
+}

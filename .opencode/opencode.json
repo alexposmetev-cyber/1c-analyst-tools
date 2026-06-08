@@ -1,0 +1,89 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local LLM (OpenAI-compatible)",
+      "options": {
+        "baseURL": "http://127.0.0.1:1234/v1"
+      },
+      "models": {
+        "default": {
+          "name": "default",
+          "tool_call": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "model": "local/default",
+  "default_agent": "1c-analyst",
+  "mcp": {
+    "onec-data": {
+      "type": "local",
+      "command": ["mcp/.venv/Scripts/python.exe", "mcp/server.py"],
+      "enabled": true,
+      "environment": {}
+    }
+  },
+  "permission": {
+    "edit": "deny",
+    "write": "deny",
+    "apply_patch": "deny",
+    "bash": {
+      "*": "deny"
+    },
+    "onec-data_*": "allow",
+    "onec_ping": "allow",
+    "onec_welcome": "allow",
+    "onec_list_infobases": "allow",
+    "onec_connect": "allow",
+    "onec_connection_status": "allow",
+    "onec_refresh_metadata": "allow",
+    "onec_metadata_status": "allow",
+    "onec_metadata_search": "allow",
+    "onec_metadata_object": "allow",
+    "onec_disconnect": "allow",
+    "onec_query": "allow",
+    "onec_read_module": "allow",
+    "onec_check_connection": "allow",
+    "onec_search_cases": "allow",
+    "onec_get_case": "allow",
+    "onec_save_case": "allow",
+    "onec_investigation_status": "allow",
+    "onec_obsidian_status": "allow",
+    "onec_obsidian_set_context": "allow",
+    "onec_obsidian_save_requirements": "allow",
+    "onec_obsidian_save_session": "allow",
+    "onec_obsidian_append_session": "allow",
+    "onec_obsidian_prepare_requirements": "allow",
+    "onec_obsidian_search_handbooks": "allow",
+    "onec_bitmedic_guidance": "allow",
+    "skill": "allow",
+    "question": "allow",
+    "read": "allow",
+    "grep": "allow",
+    "glob": "allow"
+  },
+  "agent": {
+    "1c-analyst": {
+      "mode": "primary",
+      "model": "local/default",
+      "description": "Аналитик 1С: расследование ошибок пользователей через read-only запросы к базе",
+      "permission": {
+        "edit": "deny",
+        "write": "deny",
+        "bash": "deny",
+        "onec-data_*": "allow",
+        "skill": "allow",
+        "question": "allow"
+      }
+    }
+  },
+  "instructions": [
+    "AGENTS.md"
+  ]
+}

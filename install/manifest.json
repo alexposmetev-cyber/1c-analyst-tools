@@ -1,0 +1,39 @@
+{
+  "winget": {
+    "python": {
+      "id": "Python.Python.3.12",
+      "name": "Python 3.12"
+    },
+    "git": {
+      "id": "Git.Git",
+      "name": "Git"
+    },
+    "obsidian": {
+      "id": "Obsidian.Obsidian",
+      "name": "Obsidian"
+    },
+    "ollama": {
+      "id": "Ollama.Ollama",
+      "name": "Ollama"
+    },
+    "lmstudio": {
+      "id": "LMStudio.LMStudio",
+      "name": "LM Studio"
+    }
+  },
+  "llm": {
+    "ollama": {
+      "baseURL": "http://127.0.0.1:11434/v1",
+      "recommendedModel": "qwen2.5-coder:7b",
+      "pullCommand": "ollama pull qwen2.5-coder:7b"
+    },
+    "lmstudio": {
+      "baseURL": "http://127.0.0.1:1234/v1",
+      "note": "В LM Studio: Load model → Local Server → порт 1234, включить tool calling"
+    }
+  },
+  "opencode": {
+    "version": "v1.16.2",
+    "downloadUrl": "https://github.com/anomalyco/opencode/releases/download/v1.16.2/opencode-windows-x64.zip"
+  }
+}

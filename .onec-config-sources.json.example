@@ -1,0 +1,17 @@
+{
+  "active_source_id": "",
+  "sources": [
+    {
+      "id": "example",
+      "path": "D:\\path\\to\\configuration\\xml",
+      "label": "Моя конфигурация",
+      "configuration_name": "",
+      "target_key": "",
+      "origin": "register",
+      "registered_at": "",
+      "updated_at": "",
+      "bsl_count": 0,
+      "xml_count": 0
+    }
+  ]
+}
