@@ -7,28 +7,27 @@ Read-only доступ к данным 1С и консультации **с ба
 **Требования:** Windows 10/11, [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/), платформа 1С 8.3/8.5 (для live-режима).
 
 ```powershell
-git clone https://github.com/<ваш-org>/1c-analyst-tools.git
+git clone https://github.com/alexposmetev-cyber/1c-analyst-tools.git
 cd 1c-analyst-tools
 .\Install.cmd
 ```
 
-Скрипт через winget установит **Python 3.12**, **Obsidian**, **Ollama** (или LM Studio), скачает **OpenCode** в `bin\`, создаст MCP venv и `opencode.local.json`.
+Скрипт через winget установит **Python 3.12**, **Obsidian**, **Ollama**, скачает **OpenCode** в `bin\`, создаст MCP venv и `opencode.local.json`.
 
 | Параметр | Назначение |
 |----------|------------|
-| `-LlmBackend LMStudio` | LM Studio вместо Ollama (порт 1234) |
-| `-LlmBackend Skip` | Без LLM — настройка вручную |
+| `-LlmBackend Skip` | Без Ollama — настройка LLM вручную в `opencode.local.json` |
 | `-SkipObsidian` | Не ставить Obsidian |
 | `-RegisterCom` | Сразу зарегистрировать COM 1С (UAC) |
 
 ```powershell
-.\Install.cmd -LlmBackend LMStudio -RegisterCom
+.\Install.cmd -RegisterCom
 ```
 
 **После установки:**
 
 1. `.\Register-1CCom.cmd` — если не использовали `-RegisterCom`
-2. Модель: `ollama pull qwen2.5-coder:7b` (Ollama) или Load model в LM Studio → Local Server
+2. Модель: `ollama pull qwen2.5-coder:7b`
 3. `.\Start-OpenCode.cmd` — агент **1c-analyst**
 
 Публикация на GitHub: репозиторий = корень этой папки; секреты (`opencode.local.json`, `.onec-*`) в `.gitignore`.
@@ -66,7 +65,7 @@ cd 1c-analyst-tools
 - Платформа 1С **8.3 и/или 8.5**, зарегистрированный COM (`Register-1CCom.cmd`)
 - Python 3.10+ (ставится установщиком)
 - OpenCode 1.16+ (скачивается в `bin\` установщиком)
-- Локальная LLM с **tool calling** (Ollama или LM Studio — ставятся установщиком)
+- Локальная LLM с **tool calling** (Ollama — ставится установщиком)
 
 ## Быстрый старт (вручную)
 
@@ -176,15 +175,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Fix-AllPs1Utf
 
 **Профилактика BOM:** в каталоге есть `.editorconfig` и `.vscode/settings.json` — Cursor сохраняет `.ps1` в UTF-8 BOM. Если правите скрипты вне Cursor — снова запустите Fix-скрипт.
 
-### 3. Локальная модель (LM Studio / Ollama)
+### 3. Локальная модель (Ollama)
 
-В [`opencode.json`](opencode.json) провайдер `local` → `http://127.0.0.1:1234/v1` (LM Studio по умолчанию). Модель: `local/default`. Нужна LLM с **tool calling**.
+В [`opencode.json`](opencode.json) провайдер `local` → `http://127.0.0.1:11434/v1` (Ollama). Модель: `local/default`. Рекомендуется `qwen2.5-coder:7b` — нужна LLM с **tool calling**.
 
-Другой порт — в `opencode.local.json` (пример: [`opencode.local.json.example`](opencode.local.json.example)). Файл подхватывается через `$env:OPENCODE_CONFIG` в `Start-OpenCode.cmd`.
+Другой endpoint — в `opencode.local.json` (пример: [`opencode.local.json.example`](opencode.local.json.example)). Файл подхватывается через `$env:OPENCODE_CONFIG` в `Start-OpenCode.cmd`.
 
 ### 4. Запуск (основной сценарий — только OpenCode)
 
-1. Запустите локальную LLM (LM Studio: Server → порт 1234).
+1. Запустите Ollama (`ollama serve` или из меню Пуск).
 2. Из каталога проекта:
 
 ```bat

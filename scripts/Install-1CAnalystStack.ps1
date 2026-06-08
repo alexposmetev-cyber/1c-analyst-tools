@@ -4,7 +4,7 @@
     Установка стека 1C Analyst Tools: Python, MCP, OpenCode, Obsidian, локальная LLM.
 
 .PARAMETER LlmBackend
-    Ollama (winget, порт 11434) или LMStudio (winget, порт 1234).
+    Ollama (winget, порт 11434) или Skip — без установки LLM.
 
 .PARAMETER RegisterCom
     Зарегистрировать COM 1С (UAC). Требуется установленная платформа 1С.
@@ -13,11 +13,11 @@
     .\scripts\Install-1CAnalystStack.ps1
 
 .EXAMPLE
-    .\scripts\Install-1CAnalystStack.ps1 -LlmBackend LMStudio -RegisterCom
+    .\scripts\Install-1CAnalystStack.ps1 -LlmBackend Skip -RegisterCom
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('Ollama', 'LMStudio', 'Skip')]
+    [ValidateSet('Ollama', 'Skip')]
     [string]$LlmBackend = 'Ollama',
     [switch]$SkipObsidian,
     [switch]$SkipGit,
@@ -134,10 +134,7 @@ function Ensure-ProjectConfig {
         throw "Не найден opencode.local.json.example"
     }
 
-    $baseUrl = $Manifest.llm.lmstudio.baseURL
-    if ($LlmBackend -eq 'Ollama') {
-        $baseUrl = $Manifest.llm.ollama.baseURL
-    }
+    $baseUrl = $Manifest.llm.ollama.baseURL
 
     $config = @{
         '$schema' = 'https://opencode.ai/config.json'
@@ -233,11 +230,6 @@ switch ($LlmBackend) {
         Write-Host "   После установки выполните: $($Manifest.llm.ollama.pullCommand)"
         Write-Host "   API: $($Manifest.llm.ollama.baseURL)"
     }
-    'LMStudio' {
-        Install-WingetPackage -PackageId $Manifest.winget.lmstudio.id -DisplayName $Manifest.winget.lmstudio.name
-        Write-Host "   $($Manifest.llm.lmstudio.note)"
-        Write-Host "   API: $($Manifest.llm.lmstudio.baseURL)"
-    }
     'Skip' {
         Write-Host "   Пропуск — настройте LLM вручную в opencode.local.json"
     }
@@ -284,9 +276,6 @@ if ($LlmBackend -eq 'Ollama') {
     Write-Host "  2. Модель Ollama:       $($Manifest.llm.ollama.pullCommand)"
     Write-Host "  3. Запуск Ollama:       ollama serve  (или из меню Пуск)"
 }
-elseif ($LlmBackend -eq 'LMStudio') {
-    Write-Host "  2. LM Studio: Load model, Local Server, port 1234"
-}
-Write-Host "  4. Zapusk agenta:       .\Start-OpenCode.cmd"
+Write-Host "  4. Запуск агента:       .\Start-OpenCode.cmd"
 Write-Host "  5. Smoke-test:          .\scripts\Test-AnalystStack.ps1"
 Write-Host ""
