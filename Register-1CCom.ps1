@@ -17,7 +17,8 @@
     Из cmd: Register-1CCom.cmd
 #>
 param(
-    [string]$PlatformPath
+    [string]$PlatformPath,
+    [switch]$Silent
 )
 
 Set-StrictMode -Version Latest
@@ -25,4 +26,4 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'Lib\1CPlatform.ps1')
 
-Register-1CComConnectors -PlatformPath $PlatformPath -Elevate
+Register-1CComConnectors -PlatformPath $PlatformPath -Elevate -Silent:$Silent

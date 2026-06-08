@@ -255,7 +255,8 @@ function Register-1CComConnector {
         [Parameter(Mandatory = $true)]
         [string]$PlatformBinPath,
         [string]$ProgId = '',
-        [switch]$Elevate
+        [switch]$Elevate,
+        [switch]$Silent
     )
 
     if (-not $ProgId) {
@@ -277,14 +278,22 @@ function Register-1CComConnector {
         throw "regsvr32.exe not found: $regsvr32"
     }
 
-    Write-1CPlatformMessage "Registering ${ProgId}: $dll"
-    Write-1CPlatformMessage 'Confirm UAC prompt if shown (Do not click Cancel).'
+    $useSilent = $Silent.IsPresent -or $env:ONEC_AGENT_QUIET -eq '1'
+    $regsvrArgs = if ($useSilent) { @('/s', "`"$dll`"") } else { @("`"$dll`"") }
 
-    if ($Elevate) {
-        $proc = Start-Process -FilePath $regsvr32 -ArgumentList @('/s', "`"$dll`"") -Verb RunAs -Wait -PassThru
+    Write-1CPlatformMessage "Registering ${ProgId}: $dll"
+    if ($useSilent) {
+        Write-1CPlatformMessage 'Confirm UAC prompt if shown (Do not click Cancel).'
     }
     else {
-        $proc = Start-Process -FilePath $regsvr32 -ArgumentList @('/s', "`"$dll`"") -Wait -PassThru -NoNewWindow
+        Write-1CPlatformMessage 'Confirm UAC prompt. After registration expect: DllRegisterServer ... succeeded.'
+    }
+
+    if ($Elevate) {
+        $proc = Start-Process -FilePath $regsvr32 -ArgumentList $regsvrArgs -Verb RunAs -Wait -PassThru
+    }
+    else {
+        $proc = Start-Process -FilePath $regsvr32 -ArgumentList $regsvrArgs -Wait -PassThru -NoNewWindow
     }
 
     if ($proc.ExitCode -ne 0) {
@@ -296,11 +305,37 @@ function Register-1CComConnector {
     }
 }
 
+function Show-1CComRegistrationStatus {
+    param([string]$Title = 'COM status')
+
+    Write-1CPlatformMessage ""
+    Write-1CPlatformMessage "==> $Title"
+    foreach ($progId in @('V83.COMConnector', 'V85.COMConnector')) {
+        $ok = Test-1CComConnectorRegistered -ProgId $progId
+        $label = if ($ok) { 'registered' } else { 'NOT registered' }
+        Write-1CPlatformMessage "   $progId : $label"
+    }
+
+    try {
+        foreach ($candidate in (Get-1CPlatformConnectCandidates)) {
+            $dll = Join-Path $candidate.BinPath 'comcntr.dll'
+            $exists = Test-Path -LiteralPath $dll
+            Write-1CPlatformMessage "   $($candidate.Version) -> $dll (exists: $exists)"
+        }
+    }
+    catch {
+        Write-1CPlatformWarning "   Platform search: $($_.Exception.Message)"
+    }
+}
+
 function Register-1CComConnectors {
     param(
         [string]$PlatformPath,
-        [switch]$Elevate
+        [switch]$Elevate,
+        [switch]$Silent
     )
+
+    Show-1CComRegistrationStatus -Title 'Before registration'
 
     $registered = New-Object System.Collections.Generic.List[string]
     $seenProgIds = @{}
@@ -318,13 +353,15 @@ function Register-1CComConnectors {
             continue
         }
 
-        Register-1CComConnector -PlatformBinPath $candidate.BinPath -ProgId $candidate.ProgId -Elevate:$Elevate
+        Register-1CComConnector -PlatformBinPath $candidate.BinPath -ProgId $candidate.ProgId -Elevate:$Elevate -Silent:$Silent
         [void]$registered.Add($candidate.ProgId)
     }
 
     if ($registered.Count -eq 0) {
         throw 'Не удалось зарегистрировать COM-коннекторы 1С.'
     }
+
+    Show-1CComRegistrationStatus -Title 'After registration'
 }
 
 function Connect-1CInfobaseAuto {
