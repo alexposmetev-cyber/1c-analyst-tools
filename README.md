@@ -12,11 +12,10 @@ cd 1c-analyst-tools
 .\Install.cmd
 ```
 
-Скрипт через winget установит **Python 3.12**, **Obsidian**, **Ollama**, скачает **OpenCode** в `bin\`, создаст MCP venv и `opencode.local.json`.
+Скрипт через winget установит **Python 3.12**, **Obsidian**, скачает **OpenCode** в `bin\`, создаст MCP venv и `opencode.local.json`. **LLM не устанавливается** — endpoint настраивается вручную.
 
 | Параметр | Назначение |
 |----------|------------|
-| `-LlmBackend Skip` | Без Ollama — настройка LLM вручную в `opencode.local.json` |
 | `-SkipObsidian` | Не ставить Obsidian |
 | `-RegisterCom` | Сразу зарегистрировать COM 1С (UAC) |
 
@@ -27,7 +26,7 @@ cd 1c-analyst-tools
 **После установки:**
 
 1. `.\Register-1CCom.cmd` — если не использовали `-RegisterCom`
-2. Модель: `ollama pull qwen2.5-coder:7b`
+2. Настройте LLM в `opencode.local.json` (OpenAI-compatible API с **tool calling**)
 3. `.\Start-OpenCode.cmd` — агент **1c-analyst**
 
 Публикация на GitHub: репозиторий = корень этой папки; секреты (`opencode.local.json`, `.onec-*`) в `.gitignore`.
@@ -65,7 +64,7 @@ cd 1c-analyst-tools
 - Платформа 1С **8.3 и/или 8.5**, зарегистрированный COM (`Register-1CCom.cmd`)
 - Python 3.10+ (ставится установщиком)
 - OpenCode 1.16+ (скачивается в `bin\` установщиком)
-- Локальная LLM с **tool calling** (Ollama — ставится установщиком)
+- Локальная или корпоративная LLM с **tool calling** (настраивается пользователем в `opencode.local.json`)
 
 ## Быстрый старт (вручную)
 
@@ -175,15 +174,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Fix-AllPs1Utf
 
 **Профилактика BOM:** в каталоге есть `.editorconfig` и `.vscode/settings.json` — Cursor сохраняет `.ps1` в UTF-8 BOM. Если правите скрипты вне Cursor — снова запустите Fix-скрипт.
 
-### 3. Локальная модель (Ollama)
+### 3. Локальная модель
 
-В [`opencode.json`](opencode.json) провайдер `local` → `http://127.0.0.1:11434/v1` (Ollama). Модель: `local/default`. Рекомендуется `qwen2.5-coder:7b` — нужна LLM с **tool calling**.
+В [`opencode.json`](opencode.json) провайдер `local` — OpenAI-compatible API. Модель: `local/default`. Нужна LLM с **tool calling**.
 
-Другой endpoint — в `opencode.local.json` (пример: [`opencode.local.json.example`](opencode.local.json.example)). Файл подхватывается через `$env:OPENCODE_CONFIG` в `Start-OpenCode.cmd`.
+Endpoint укажите в `opencode.local.json` (пример: [`opencode.local.json.example`](opencode.local.json.example) — Ollama `http://127.0.0.1:11434/v1` или другой сервер). Файл подхватывается через `$env:OPENCODE_CONFIG` в `Start-OpenCode.cmd`.
 
 ### 4. Запуск (основной сценарий — только OpenCode)
 
-1. Запустите Ollama (`ollama serve` или из меню Пуск).
+1. Запустите свою LLM (Ollama, vLLM, корпоративный gateway и т.п.).
 2. Из каталога проекта:
 
 ```bat

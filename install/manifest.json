@@ -11,17 +11,6 @@
     "obsidian": {
       "id": "Obsidian.Obsidian",
       "name": "Obsidian"
-    },
-    "ollama": {
-      "id": "Ollama.Ollama",
-      "name": "Ollama"
-    }
-  },
-  "llm": {
-    "ollama": {
-      "baseURL": "http://127.0.0.1:11434/v1",
-      "recommendedModel": "qwen2.5-coder:7b",
-      "pullCommand": "ollama pull qwen2.5-coder:7b"
     }
   },
   "opencode": {

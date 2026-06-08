@@ -1,10 +1,7 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Установка стека 1C Analyst Tools: Python, MCP, OpenCode, Obsidian, локальная LLM.
-
-.PARAMETER LlmBackend
-    Ollama (winget, порт 11434) или Skip — без установки LLM.
+    Установка стека 1C Analyst Tools: Python, MCP, OpenCode, Obsidian.
 
 .PARAMETER RegisterCom
     Зарегистрировать COM 1С (UAC). Требуется установленная платформа 1С.
@@ -13,12 +10,10 @@
     .\scripts\Install-1CAnalystStack.ps1
 
 .EXAMPLE
-    .\scripts\Install-1CAnalystStack.ps1 -LlmBackend Skip -RegisterCom
+    .\scripts\Install-1CAnalystStack.ps1 -RegisterCom
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('Ollama', 'Skip')]
-    [string]$LlmBackend = 'Ollama',
     [switch]$SkipObsidian,
     [switch]$SkipGit,
     [switch]$SkipOpenCode,
@@ -134,20 +129,8 @@ function Ensure-ProjectConfig {
         throw "Не найден opencode.local.json.example"
     }
 
-    $baseUrl = $Manifest.llm.ollama.baseURL
-
-    $config = @{
-        '$schema' = 'https://opencode.ai/config.json'
-        provider  = @{
-            local = @{
-                options = @{
-                    baseURL = $baseUrl
-                }
-            }
-        }
-    } | ConvertTo-Json -Depth 5
-    Set-Content -LiteralPath $localConfig -Value $config -Encoding UTF8
-    Write-Host "   Создан opencode.local.json (baseURL: $baseUrl)"
+    Copy-Item -LiteralPath $example -Destination $localConfig
+    Write-Host "   Создан opencode.local.json из примера — настройте baseURL своей LLM"
 }
 
 function Ensure-ObsidianVault {
@@ -223,17 +206,8 @@ else {
     Ensure-ObsidianVault
 }
 
-Write-Step "Локальная LLM ($LlmBackend)"
-switch ($LlmBackend) {
-    'Ollama' {
-        Install-WingetPackage -PackageId $Manifest.winget.ollama.id -DisplayName $Manifest.winget.ollama.name
-        Write-Host "   После установки выполните: $($Manifest.llm.ollama.pullCommand)"
-        Write-Host "   API: $($Manifest.llm.ollama.baseURL)"
-    }
-    'Skip' {
-        Write-Host "   Пропуск — настройте LLM вручную в opencode.local.json"
-    }
-}
+Write-Step "Конфигурация LLM"
+Write-Host "   Установщик не ставит LLM — настройте endpoint в opencode.local.json"
 Ensure-ProjectConfig
 
 Write-Step "COM 1С"
@@ -272,10 +246,7 @@ Write-Host "Установка завершена." -ForegroundColor Green
 Write-Host ""
 Write-Host "Дальше:"
 Write-Host "  1. COM 1С (один раз):  .\Register-1CCom.cmd"
-if ($LlmBackend -eq 'Ollama') {
-    Write-Host "  2. Модель Ollama:       $($Manifest.llm.ollama.pullCommand)"
-    Write-Host "  3. Запуск Ollama:       ollama serve  (или из меню Пуск)"
-}
-Write-Host "  4. Запуск агента:       .\Start-OpenCode.cmd"
-Write-Host "  5. Smoke-test:          .\scripts\Test-AnalystStack.ps1"
+Write-Host "  2. LLM:                 настройте opencode.local.json (OpenAI-compatible API, tool calling)"
+Write-Host "  3. Запуск агента:       .\Start-OpenCode.cmd"
+Write-Host "  4. Smoke-test:          .\scripts\Test-AnalystStack.ps1"
 Write-Host ""
