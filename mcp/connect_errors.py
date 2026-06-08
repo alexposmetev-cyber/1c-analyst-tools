@@ -90,9 +90,10 @@ def agent_hint_for_error(error_kind: str, register_script: str = "") -> str:
             "Не создавай 1cestart.cfg вручную — используется %APPDATA%\\1C\\1CEStart\\1cestart.cfg."
         ),
         "com": (
-            f"AGENT_ACTION: onec_com_status показывает COM=false — попроси запустить "
-            f"{register_script or 'Register-1CCom.cmd'} (UAC). "
-            "Если COM=true, Register-1CCom не нужен."
+            f"AGENT_ACTION: onec_com_status COM=false — регистрация comcntr.dll только с правами "
+            f"администратора Windows. Попроси IT выполнить {register_script or 'Register-1CCom.cmd'} "
+            "или regsvr32 на comcntr.dll. Пользователь без админа сам не зарегистрирует. "
+            "Предложи offline/research до решения IT. Если COM=true — Register-1CCom не нужен."
         ),
         "session_lock": (
             "AGENT_ACTION: база занята другим сеансом. Попроси закрыть 1С для этой базы. "

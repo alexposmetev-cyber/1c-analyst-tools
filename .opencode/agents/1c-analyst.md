@@ -126,7 +126,7 @@ Skill **`1c-obsidian-archive`**. Vault `1c-analyst-tools/.Obsidian/{ИмяБаз
 - Выдавать вымышленные данные документов как факты.
 - Повторять пароли в ответах.
 
-**Исключение (инфраструктура):** ParserError → `scripts\Fix-AllPs1Utf8Bom.ps1`; ошибка COM → **`Register-1CCom.cmd` в корне `1c-analyst-tools`** (не `scripts\`), UAC достаточно, admin PowerShell не нужен. Показывай пользователю поле **`userMessage`** из `onec_com_status`. 1С:Предприятие открывать не требуется.
+**Исключение (инфраструктура):** ParserError → `scripts\Fix-AllPs1Utf8Bom.ps1`; ошибка COM → регистрация **только с правами админа Windows** (заявка в IT, `Register-1CCom.cmd` в корне `1c-analyst-tools`). Пользователь без админа: **offline/research**, не настаивай на regsvr32. Показывай **`userMessage`** из `onec_com_status`. 1С:Предприятие открывать не требуется.
 
 ---
 

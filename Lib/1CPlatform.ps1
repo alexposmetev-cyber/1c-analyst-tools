@@ -233,11 +233,62 @@ function Find-1CPlatformBinUnderRoot {
     return $null
 }
 
+function Test-IsWindowsAdministrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Test-UserIsInAdministratorsGroup {
+    if (Test-IsWindowsAdministrator) {
+        return $true
+    }
+
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $administratorsSid = New-Object System.Security.Principal.SecurityIdentifier(
+        [System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsRole,
+        $null
+    )
+
+    foreach ($group in $identity.Groups) {
+        if ($group.Value -eq $administratorsSid.Value) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Get-1CComItRegistrationRequest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$DllPaths
+    )
+
+    $lines = @(
+        'Заявка в IT: однократная регистрация COM-коннектора 1С на этом ПК (нужны права администратора Windows).',
+        'Пользователь без прав админа не может выполнить regsvr32 самостоятельно.',
+        '',
+        'Выполнить от имени администратора (64-bit regsvr32, не SysWOW64):'
+    )
+
+    foreach ($dll in ($DllPaths | Select-Object -Unique)) {
+        $lines += "  C:\Windows\System32\regsvr32.exe `"$dll`""
+    }
+
+    $lines += ''
+    $lines += 'Или запустить Register-1CCom.cmd из каталога 1c-analyst-tools под учётной записью администратора.'
+    $lines += 'После регистрации перезапустить MCP (onec-data) и повторить подключение к базе.'
+    $lines += 'До регистрации COM агент работает в режимах offline/research (без live-запросов к ИБ).'
+
+    return ($lines -join [Environment]::NewLine)
+}
+
 function Get-Regsvr32ExitMessage {
     param([int]$ExitCode)
 
     switch ($ExitCode) {
-        5 { return 'Отказано в доступе. Подтвердите UAC или запустите Register-1CCom.cmd от имени администратора.' }
+        5 { return 'Отказано в доступе. Нужны права администратора Windows — передайте заявку в IT (см. текст ниже).' }
         3 { return 'Путь к comcntr.dll не найден.' }
         4 { return 'Не удалось загрузить comcntr.dll (несовместимая версия или повреждён файл).' }
         default { return "Неизвестная ошибка regsvr32 (код $ExitCode)." }
@@ -266,6 +317,11 @@ function Register-1CComConnector {
 
     if (Test-1CComConnectorRegistered -ProgId $ProgId) {
         return
+    }
+
+    if (-not (Test-UserIsInAdministratorsGroup)) {
+        $dll = Join-Path $PlatformBinPath 'comcntr.dll'
+        throw (Get-1CComItRegistrationRequest -DllPaths @($dll))
     }
 
     $dll = Join-Path $PlatformBinPath 'comcntr.dll'
@@ -310,6 +366,9 @@ function Show-1CComRegistrationStatus {
 
     Write-1CPlatformMessage ""
     Write-1CPlatformMessage "==> $Title"
+    $canRegister = Test-UserIsInAdministratorsGroup
+    $adminLabel = if (Test-IsWindowsAdministrator) { 'yes (elevated)' } elseif ($canRegister) { 'yes (UAC)' } else { 'NO — request IT' }
+    Write-1CPlatformMessage "   Windows admin rights for regsvr32: $adminLabel"
     foreach ($progId in @('V83.COMConnector', 'V85.COMConnector')) {
         $ok = Test-1CComConnectorRegistered -ProgId $progId
         $label = if ($ok) { 'registered' } else { 'NOT registered' }
@@ -339,6 +398,8 @@ function Register-1CComConnectors {
 
     $registered = New-Object System.Collections.Generic.List[string]
     $seenProgIds = @{}
+    $pendingDlls = New-Object System.Collections.Generic.List[string]
+    $toRegister = New-Object System.Collections.Generic.List[object]
 
     foreach ($candidate in (Get-1CPlatformConnectCandidates -ExplicitPath $PlatformPath)) {
         if ($seenProgIds.ContainsKey($candidate.ProgId)) {
@@ -353,8 +414,19 @@ function Register-1CComConnectors {
             continue
         }
 
+        [void]$pendingDlls.Add((Join-Path $candidate.BinPath 'comcntr.dll'))
+        [void]$toRegister.Add($candidate)
+    }
+
+    if ($pendingDlls.Count -gt 0 -and -not (Test-UserIsInAdministratorsGroup)) {
+        throw (Get-1CComItRegistrationRequest -DllPaths $pendingDlls.ToArray())
+    }
+
+    foreach ($candidate in $toRegister) {
         Register-1CComConnector -PlatformBinPath $candidate.BinPath -ProgId $candidate.ProgId -Elevate:$Elevate -Silent:$Silent
-        [void]$registered.Add($candidate.ProgId)
+        if ($registered -notcontains $candidate.ProgId) {
+            [void]$registered.Add($candidate.ProgId)
+        }
     }
 
     if ($registered.Count -eq 0) {

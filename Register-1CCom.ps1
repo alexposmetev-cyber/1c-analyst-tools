@@ -13,6 +13,8 @@
     Register-1CCom.cmd
 
 .NOTES
+    Регистрация comcntr.dll требует прав администратора Windows.
+    Пользователь без админа получит текст заявки для IT.
     Из PowerShell: .\Register-1CCom.ps1
     Из cmd: Register-1CCom.cmd
 #>

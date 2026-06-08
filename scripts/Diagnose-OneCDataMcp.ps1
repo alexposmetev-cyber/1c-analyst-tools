@@ -79,7 +79,7 @@ else {
 
 Write-Host ''
 Write-Host '=== Next steps ===' -ForegroundColor Cyan
-Write-Host '1. If COM NOT REGISTERED -> Register-1CCom.cmd (confirm UAC). Opening 1C Enterprise is NOT required.'
+Write-Host '1. If COM NOT REGISTERED -> admin Windows required (IT: Register-1CCom.cmd or regsvr32). No admin -> offline/research only.'
 Write-Host '2. Cursor: Settings - MCP - onec-data - Restart'
 Write-Host '3. MCP tools: onec_ping, onec_com_status, onec_connect (no refresh_metadata=true)'
 Write-Host '4. First connect may take 30-60 seconds'

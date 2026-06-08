@@ -165,8 +165,9 @@ def _com_status_payload() -> dict[str, Any]:
 
     if not v83 and not v85:
         actions.append(
-            f"COM не зарегистрирован. Запустите: {register_script} "
-            "(подтвердите UAC). Открывать 1С:Предприятие не нужно."
+            f"COM не зарегистрирован. Нужны права администратора Windows (один раз на ПК): "
+            f"{register_script} или заявка в IT с путём к comcntr.dll. "
+            "Без COM — режимы offline/research."
         )
     elif not v85:
         actions.append(
@@ -187,12 +188,12 @@ def _com_status_payload() -> dict[str, Any]:
     user_message = ""
     if not ready:
         user_message = (
-            "COM-коннектор 1С не готов к подключению. "
-            f"Запустите файл Register-1CCom.cmd из каталога 1c-analyst-tools "
-            f"(полный путь: {register_script}). "
-            "Подтвердите запрос UAC — отдельный PowerShell «от администратора» не нужен. "
-            "Открывать 1С:Предприятие заранее не требуется. "
-            "После регистрации: Settings → MCP → onec-data → Restart, затем повторите connect."
+            "COM-коннектор 1С не готов к live-подключению к базе. "
+            f"Регистрация comcntr.dll требует прав администратора Windows "
+            f"(один раз на компьютере): {register_script} или заявка в IT. "
+            "Пользователь без прав админа не сможет выполнить regsvr32 самостоятельно. "
+            "До регистрации COM агент работает в offline/research (ИТС, кейсы, без onec_query). "
+            "После регистрации IT: Restart MCP onec-data, затем onec_connect."
         )
 
     return {

@@ -254,7 +254,7 @@ Write-Host ""
 Write-Host "Установка завершена." -ForegroundColor Green
 Write-Host ""
 Write-Host "Дальше:"
-Write-Host "  1. COM 1С (один раз):  .\Register-1CCom.cmd"
+Write-Host "  1. COM 1С (один раз, админ Windows или IT):  .\Register-1CCom.cmd"
 Write-Host "  2. LLM:                 настройте opencode.local.json (OpenAI-compatible API, tool calling)"
 Write-Host "  3. Запуск агента:       .\Start-OpenCode.cmd"
 Write-Host "  4. Smoke-test:          .\scripts\Test-AnalystStack.ps1"
