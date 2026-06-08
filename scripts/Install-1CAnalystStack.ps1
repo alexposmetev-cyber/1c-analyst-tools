@@ -51,7 +51,7 @@ function Test-WingetPackageInstalled {
     if (-not (Test-CommandAvailable 'winget')) {
         return $false
     }
-    $output = & winget list --id $PackageId -e --accept-source-agreements 2>&1 | Out-String
+    $output = & winget list --id $PackageId -e --source winget --accept-source-agreements 2>&1 | Out-String
     return $output -match [regex]::Escape($PackageId)
 }
 
@@ -67,8 +67,8 @@ function Install-WingetPackage {
     if (-not (Test-CommandAvailable 'winget')) {
         throw "winget не найден. Установите App Installer из Microsoft Store или пакеты вручную: $DisplayName ($PackageId)"
     }
-    Write-Host "   Установка $DisplayName через winget..."
-    & winget install --id $PackageId -e --accept-package-agreements --accept-source-agreements
+    Write-Host "   Установка $DisplayName через winget (источник winget)..."
+    & winget install --id $PackageId -e --source winget --accept-package-agreements --accept-source-agreements
     if ($LASTEXITCODE -gt 1) {
         throw "winget install $PackageId завершился с кодом $LASTEXITCODE"
     }
@@ -99,6 +99,15 @@ function Get-PythonExecutable {
             # python ne v PATH ili sloman
         }
     }
+
+    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    foreach ($folder in @('Python312', 'Python311', 'Python310')) {
+        $candidate = Join-Path $localAppData "Programs\Python\$folder\python.exe"
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
     return $null
 }
 
