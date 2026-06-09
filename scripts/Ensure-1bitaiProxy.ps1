@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -12,11 +12,34 @@ if (-not (Test-Path -LiteralPath $Python)) {
     throw "MCP venv не найден: $Python. Запустите scripts\Setup-Mcp.ps1"
 }
 
-if (-not $env:ONEBITAI_API_KEY) {
+function Get-1bitApiKey {
+    if ($env:ONEBITAI_API_KEY) {
+        return $env:ONEBITAI_API_KEY.Trim()
+    }
     $savedKey = [System.Environment]::GetEnvironmentVariable('ONEBITAI_API_KEY', 'User')
     if ($savedKey) {
-        $env:ONEBITAI_API_KEY = $savedKey
+        return $savedKey.Trim()
     }
+    $localConfig = Join-Path $ProjectRoot 'opencode.local.json'
+    if (-not (Test-Path -LiteralPath $localConfig)) {
+        return ''
+    }
+    try {
+        $json = Get-Content -LiteralPath $localConfig -Raw -Encoding UTF8 | ConvertFrom-Json
+        $key = [string]$json.provider.'1bitai'.options.apiKey
+        if ($key -and -not $key.StartsWith('{env:')) {
+            return $key.Trim()
+        }
+    }
+    catch {
+        return ''
+    }
+    return ''
+}
+
+$resolvedKey = Get-1bitApiKey
+if ($resolvedKey) {
+    $env:ONEBITAI_API_KEY = $resolvedKey
 }
 
 function Stop-ProxyOnPort {

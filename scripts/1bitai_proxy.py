@@ -34,15 +34,17 @@ def _resolve_api_key() -> str:
                 .get("options", {})
                 .get("apiKey", "")
             )
-            if isinstance(key, str) and key.strip() and not key.strip().startswith("{env:"):
-                return key.strip()
+            if isinstance(key, str) and key.strip():
+                key = key.strip()
+                if key.startswith("{env:") and key.endswith("}"):
+                    env_name = key[5:-1].strip()
+                    return os.environ.get(env_name, "").strip()
+                return key
         except (json.JSONDecodeError, OSError, AttributeError):
             pass
 
     return ""
 
-
-API_KEY = _resolve_api_key()
 
 ALLOWED_MODELS = {
     "qwen3-coder": "ollama/qwen3-coder:latest",
@@ -60,6 +62,10 @@ DROP_PARAMS = (
     "service_tier",
     "verbosity",
     "metadata",
+    "store",
+    "n",
+    "logprobs",
+    "logit_bias",
 )
 MAX_RETRIES = 3
 
@@ -79,7 +85,38 @@ def _has_tool_history(messages: list[Any]) -> bool:
     return False
 
 
-def _sanitize_chat_data(data: dict[str, Any]) -> dict[str, Any]:
+def _normalize_tool_definition(tool: Any, aggressive: bool) -> dict[str, Any] | None:
+    if not isinstance(tool, dict):
+        return None
+    normalized = dict(tool)
+    function = normalized.get("function")
+    if not isinstance(function, dict):
+        return normalized
+
+    function = dict(function)
+    function.pop("strict", None)
+    parameters = function.get("parameters")
+    if isinstance(parameters, dict):
+        parameters = dict(parameters)
+        parameters.pop("additionalProperties", None)
+        parameters.pop("$schema", None)
+        if aggressive:
+            properties = parameters.get("properties")
+            if isinstance(properties, dict):
+                cleaned_props: dict[str, Any] = {}
+                for name, prop in properties.items():
+                    if isinstance(prop, dict):
+                        prop = dict(prop)
+                        prop.pop("additionalProperties", None)
+                        prop.pop("strict", None)
+                    cleaned_props[name] = prop
+                parameters["properties"] = cleaned_props
+        function["parameters"] = parameters
+    normalized["function"] = function
+    return normalized
+
+
+def _sanitize_chat_data(data: dict[str, Any], aggressive: bool = False) -> dict[str, Any]:
     model = data.get("model")
     if isinstance(model, str):
         mapped = ALLOWED_MODELS.get(model.strip())
@@ -91,6 +128,25 @@ def _sanitize_chat_data(data: dict[str, Any]) -> dict[str, Any]:
 
     for param in DROP_PARAMS:
         data.pop(param, None)
+
+    tools = data.get("tools")
+    if tools is not None and (not isinstance(tools, list) or not tools):
+        data.pop("tools", None)
+        data.pop("tool_choice", None)
+    elif isinstance(tools, list):
+        cleaned_tools = []
+        for tool in tools:
+            normalized = _normalize_tool_definition(tool, aggressive=aggressive)
+            if normalized is not None:
+                cleaned_tools.append(normalized)
+        if cleaned_tools:
+            data["tools"] = cleaned_tools
+        else:
+            data.pop("tools", None)
+            data.pop("tool_choice", None)
+
+    if aggressive:
+        data.pop("tool_choice", None)
 
     messages = data.get("messages")
     if isinstance(messages, list) and _has_tool_history(messages) and not data.get("tools"):
@@ -113,11 +169,36 @@ def _is_upstream_failure(status: int, payload: bytes) -> bool:
     if status >= 400:
         return True
     text = payload.decode("utf-8", "replace")
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return "Operation not allowed" in text
+
+    if isinstance(data.get("error"), dict):
+        return True
+
+    choices = data.get("choices")
+    if isinstance(choices, list) and choices:
+        message = choices[0].get("message") if isinstance(choices[0], dict) else {}
+        if not isinstance(message, dict):
+            message = {}
+        if message.get("tool_calls"):
+            return False
+        content = message.get("content")
+        if isinstance(content, str) and "Operation not allowed" in content:
+            stripped = content.strip()
+            if stripped.startswith("{") or len(stripped) < 200:
+                return True
+        if content or message.get("role") == "assistant":
+            return False
+
     markers = (
         "Operation not allowed",
         "llm_call_failed",
         "team_model_access_denied",
         "does not support thinking",
+        "content filtering",
+        "content_filter",
     )
     return any(marker in text for marker in markers)
 
@@ -128,8 +209,9 @@ def _forward(method: str, path: str, body: bytes | None, headers: dict[str, str]
         "Content-Type": headers.get("Content-Type", "application/json"),
         "Accept": headers.get("Accept", "application/json"),
     }
-    if API_KEY:
-        req_headers["Authorization"] = f"Bearer {API_KEY}"
+    api_key = _resolve_api_key()
+    if api_key:
+        req_headers["Authorization"] = f"Bearer {api_key}"
 
     request = urllib.request.Request(url, data=body, headers=req_headers, method=method)
     try:
@@ -140,24 +222,8 @@ def _forward(method: str, path: str, body: bytes | None, headers: dict[str, str]
         return error.code, payload, error.headers.get_content_type() if error.headers else "application/json"
 
 
-def _forward_with_retry(
-    method: str, path: str, body: bytes | None, headers: dict[str, str]
-) -> tuple[int, bytes, str]:
-    last: tuple[int, bytes, str] = (502, b"", "application/json")
-    for attempt in range(1, MAX_RETRIES + 1):
-        status, payload, content_type = _forward(method, path, body, headers)
-        last = (status, payload, content_type)
-        if not _is_upstream_failure(status, payload):
-            return status, payload, content_type
-        preview = payload.decode("utf-8", "replace")[:200]
-        _log(f"upstream fail attempt {attempt}/{MAX_RETRIES}: HTTP {status} {preview}")
-        if attempt < MAX_RETRIES:
-            time.sleep(0.8 * attempt)
-    return last
-
-
-def _parse_chat_body(raw: bytes) -> tuple[bytes, bool]:
-    """Возвращает тело для upstream и флаг stream у клиента."""
+def _build_chat_body(raw: bytes, aggressive: bool) -> tuple[bytes, bool]:
+    """Готовит тело chat/completions для upstream и возвращает флаг stream клиента."""
     try:
         data: dict[str, Any] = json.loads(raw.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -167,8 +233,34 @@ def _parse_chat_body(raw: bytes) -> tuple[bytes, bool]:
     if client_stream:
         data["stream"] = False
     data.pop("stream_options", None)
-    data = _sanitize_chat_data(data)
+    data = _sanitize_chat_data(data, aggressive=aggressive)
     return json.dumps(data, ensure_ascii=False).encode("utf-8"), client_stream
+
+
+def _forward_with_retry(
+    method: str,
+    path: str,
+    body: bytes | None,
+    headers: dict[str, str],
+    raw_chat_body: bytes | None = None,
+) -> tuple[int, bytes, str]:
+    last: tuple[int, bytes, str] = (502, b"", "application/json")
+    for attempt in range(1, MAX_RETRIES + 1):
+        payload_body = body
+        if raw_chat_body is not None:
+            payload_body, _ = _build_chat_body(raw_chat_body, aggressive=(attempt > 1))
+        status, payload, content_type = _forward(method, path, payload_body, headers)
+        last = (status, payload, content_type)
+        if not _is_upstream_failure(status, payload):
+            return status, payload, content_type
+        preview = payload.decode("utf-8", "replace")[:200]
+        _log(
+            f"upstream fail attempt {attempt}/{MAX_RETRIES} "
+            f"aggressive={attempt > 1}: HTTP {status} {preview}"
+        )
+        if attempt < MAX_RETRIES:
+            time.sleep(0.8 * attempt)
+    return last
 
 
 def _sse_event(payload: dict[str, Any]) -> str:
@@ -272,11 +364,25 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         length = int(self.headers.get("Content-Length", "0") or 0)
-        body = self.rfile.read(length) if length else b""
+        raw_body = self.rfile.read(length) if length else b""
         client_stream = False
-        if self.path.startswith("/v1/chat/completions") or self.path == "/chat/completions":
-            body, client_stream = _parse_chat_body(body)
-        status, payload, content_type = _forward_with_retry("POST", self.path, body, dict(self.headers))
+        is_chat = self.path.startswith("/v1/chat/completions") or self.path == "/chat/completions"
+        if is_chat:
+            _, client_stream = _build_chat_body(raw_body, aggressive=False)
+            status, payload, content_type = _forward_with_retry(
+                "POST",
+                self.path,
+                None,
+                dict(self.headers),
+                raw_chat_body=raw_body,
+            )
+        else:
+            status, payload, content_type = _forward_with_retry(
+                "POST",
+                self.path,
+                raw_body,
+                dict(self.headers),
+            )
         if (
             client_stream
             and status == 200
@@ -293,7 +399,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
-    if not API_KEY:
+    if not _resolve_api_key():
         print("ONEBITAI_API_KEY не задан", file=sys.stderr)
         return 1
 

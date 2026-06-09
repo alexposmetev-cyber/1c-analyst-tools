@@ -10,8 +10,10 @@ description: Пайплайн расследования live — метадан
 
 ## Фаза 0 — подготовка
 
-1. `onec_metadata_status` — кэш готов.
-2. `onec_search_cases` — по симптому и `configurationName` из метаданных.
+**До этой фазы:** welcome → question → connect (`credentials_confirmed=true`) → пользователь описал задачу → **`onec_declare_symptom`**.
+
+1. `onec_metadata_status` — при необходимости.
+2. `onec_search_cases` — только после `onec_declare_symptom`, запрос = зафиксированный симптом.
 3. `onec_metadata_search` — объекты, регистры, связанные с симптомом.
 4. Сформулируй **поисковый запрос для ИТС** (конфигурация + версия + симптом + текст ошибки).
 

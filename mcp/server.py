@@ -7,6 +7,7 @@ import json
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -25,8 +26,44 @@ from connection_session import (
     save_session,
     targets_equal,
 )
+from agent_reply import (
+    CONNECT_FOLLOWUP,
+    WELCOME_ALREADY_SHOWN,
+    format_bridge_status_reply,
+    format_cases_reply,
+    format_check_connection_reply,
+    format_connect_reply,
+    format_connection_status_reply,
+    format_get_case_reply,
+    format_infobases_reply,
+    format_metadata_status_reply,
+    format_investigation_status_reply,
+    format_refresh_metadata_reply,
+    format_save_case_reply,
+    plain_user_reply,
+)
 from connect_errors import agent_hint_for_error, classify_connect_error
-from case_library import get_case, save_case, search_cases
+from workflow_gates import (
+    clear_workflow,
+    credentials_gate_message,
+    credentials_password_gate_message,
+    declared_symptom,
+    investigation_gate_message,
+    live_gate_message,
+    load_workflow,
+    mark_connected,
+    mark_credentials_confirmed,
+    mark_symptom,
+    mark_task_type,
+    mark_welcome_done,
+    maybe_symptom_from_first_message,
+    record_symptom_rejection,
+    reset_workflow,
+    task_type_followup_message,
+    validate_investigation_query,
+    validate_symptom,
+)
+from case_library import compact_case_summary, get_case, save_case, search_cases
 from bitmedic_research import bitmedic_search_guidance
 from investigation_tracker import (
     clear_tracker,
@@ -64,6 +101,14 @@ from config_sources import (
     unregister_source,
 )
 from session_context import reset_session_for_new_chat
+from bridge_client import (
+    bridge_execute_query,
+    bridge_is_usable_for_session,
+    bridge_ping,
+    bridge_status_payload,
+    load_bridge_config,
+    session_matches_bridge,
+)
 from welcome import welcome_payload_json
 from web_research import (
     clear_its_payload,
@@ -251,9 +296,46 @@ def _ensure_ps1_utf8_bom() -> None:
         return
 
 
+def _ensure_bridge_stack() -> None:
+    """Фоновый запуск Bridge при старте MCP (если opencode.exe без Start-OpenCode.cmd)."""
+    if sys.platform != "win32":
+        return
+
+    script = ROOT / "scripts" / "Start-BridgeStack.ps1"
+    if not script.is_file() or not load_bridge_config():
+        return
+
+    try:
+        if bridge_status_payload().get("readyForQuery"):
+            return
+    except (RuntimeError, OSError, ValueError):
+        pass
+
+    creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        subprocess.Popen(
+            [
+                _resolve_powershell_exe(),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script),
+                "-Quiet",
+            ],
+            cwd=str(ROOT),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=creation_flags,
+        )
+    except OSError:
+        return
+
+
 def _startup_self_heal() -> None:
     repair_session_file(ROOT)
     _ensure_ps1_utf8_bom()
+    _ensure_bridge_stack()
 
 
 _startup_self_heal()
@@ -262,6 +344,8 @@ mcp = FastMCP("onec-data")
 
 _memory_session: dict[str, str] | None = None
 _verified_target_key: str | None = None
+_welcome_shown_in_chat: bool = False
+_welcome_lock = threading.Lock()
 _its_memory: dict[str, str] = {}
 
 
@@ -433,6 +517,22 @@ def _clear_verified() -> None:
     _verified_target_key = None
 
 
+def _gate_investigation_reply() -> str | None:
+    block = investigation_gate_message(ROOT)
+    if block:
+        return plain_user_reply(block)
+    return None
+
+
+def _gate_live_reply() -> str | None:
+    connection = resolve_connection(ROOT, _memory_session)
+    verified = bool(connection and _is_verified(connection))
+    block = live_gate_message(ROOT, connection_verified=verified)
+    if block:
+        return plain_user_reply(block)
+    return None
+
+
 def _store_session(session: dict[str, str]) -> dict[str, str]:
     global _memory_session
 
@@ -558,6 +658,42 @@ def onec_com_status() -> str:
     return json.dumps(_com_status_payload(), ensure_ascii=False)
 
 
+@mcp.tool()
+def onec_bridge_status() -> str:
+    """Статус Bridge Agent (текст для пользователя, без JSON)."""
+    session = _current_session()
+    payload = bridge_status_payload(session)
+    return plain_user_reply(format_bridge_status_reply(payload))
+
+
+def _connect_via_bridge(session: dict[str, str]) -> dict[str, Any] | None:
+    config = load_bridge_config()
+    if not bridge_is_usable_for_session(session, config):
+        return None
+    try:
+        ping_result = bridge_ping(config)
+    except RuntimeError:
+        return None
+    return {
+        "status": "ok",
+        "connected": bool(ping_result.get("connected", True)),
+        "via": "bridge",
+        "bridgeId": str(config.get("bridge_id", "")),
+        "data": ping_result.get("rows", []),
+        "message": "Подключение подтверждено через Bridge Agent (долгий COM).",
+    }
+
+
+def _bridge_note_for_session(session: dict[str, str]) -> str:
+    config = load_bridge_config()
+    if not config:
+        return ""
+    if bridge_is_usable_for_session(session, config):
+        return ""
+    status = bridge_status_payload(session)
+    return str(status.get("message") or "")
+
+
 def _reset_session_on_welcome(first_user_message: str) -> dict[str, Any]:
     global _memory_session
 
@@ -565,7 +701,7 @@ def _reset_session_on_welcome(first_user_message: str) -> dict[str, Any]:
         global _memory_session
         _memory_session = None
 
-    return reset_session_for_new_chat(
+    reset_block = reset_session_for_new_chat(
         ROOT,
         _memory_session,
         first_user_message,
@@ -573,25 +709,36 @@ def _reset_session_on_welcome(first_user_message: str) -> dict[str, Any]:
         clear_verified=_clear_verified,
         clear_session_file=clear_session,
     )
+    reset_workflow(ROOT)
+    mark_welcome_done(ROOT)
+    maybe_symptom_from_first_message(ROOT, first_user_message)
+    return reset_block
 
 
 @mcp.tool()
 def onec_welcome(first_user_message: str = "") -> str:
-    """Приветствие для новой сессии: меню задач для question + технический контекст для агента.
+    """Приветствие для новой сессии. Вызывать **один раз**; затем question.
 
     first_user_message — текст первого сообщения пользователя.
-    Пользователю показывать formatted_user; варианты выбора — через question (поле question).
-    formatted (MCP-список) — только для агента, не в чат.
+    Ответ — готовый текст для пользователя + подсказка вызвать question один раз.
     """
+    global _welcome_shown_in_chat
+
+    with _welcome_lock:
+        if _welcome_shown_in_chat:
+            return plain_user_reply(WELCOME_ALREADY_SHOWN)
+        _welcome_shown_in_chat = True
+
     session_reset = _reset_session_on_welcome(first_user_message)
-    return welcome_payload_json(ROOT, _memory_session, session_reset=session_reset)
+    welcome_text = welcome_payload_json(ROOT, _memory_session, session_reset=session_reset)
+    return plain_user_reply(welcome_text)
 
 
 @mcp.tool()
 def onec_list_infobases() -> str:
-    """Возвращает список информационных баз из реестра ibases.v8i пользователя Windows."""
-    output = _run_powershell(["-ListInfoBases", "-OutputFormat", "Json"])
-    return output
+    """Список баз из реестра ibases.v8i. Пользователю — только replyToUser."""
+    bases = _list_infobases_payload()
+    return plain_user_reply(format_infobases_reply(bases))
 
 
 @mcp.tool()
@@ -599,17 +746,8 @@ def onec_connection_status() -> str:
     """Возвращает текущие настройки подключения к базе (без пароля)."""
     connection = resolve_connection(ROOT, _memory_session)
     if not connection:
-        return json.dumps(
-            {
-                "connected": False,
-                "session_saved": False,
-                "message": (
-                    "AGENT_ACTION (режим live): onec_list_infobases → спросить базу/логин/пароль → onec_connect. "
-                    "Если доступа к ИБ нет — offline/research без connect. Не предлагать скрипты."
-                ),
-            },
-            ensure_ascii=False,
-            indent=2,
+        return plain_user_reply(
+            "К базе не подключены. Укажите базу, пользователя и пароль — подключу для live-режима."
         )
 
     payload = public_view(connection)
@@ -618,40 +756,7 @@ def onec_connection_status() -> str:
     session = connection
     payload["metadata"] = metadata_status(ROOT, _metadata_cache_relative(), session)
 
-    if payload["connected"]:
-        payload["message"] = "Подключение подтверждено в текущей сессии MCP."
-    else:
-        payload["message"] = (
-            "AGENT_ACTION (режим live): сохранённая сессия не активна — спроси базу/логин/пароль и onec_connect. "
-            "Если доступа к ИБ нет — работай в offline/research без onec_query."
-        )
-
-    cases_payload: dict[str, Any] = {
-        "count": 0,
-        "matches": [],
-        "mustReviewBeforeInvestigation": False,
-    }
-    case_query = " ".join(
-        part
-        for part in [
-            str(payload.get("target", "")),
-            str(payload["metadata"].get("configurationName", "")),
-        ]
-        if part
-    ).strip()
-    if case_query:
-        try:
-            cases_payload = search_cases(
-                ROOT,
-                case_query,
-                configuration_name=str(payload["metadata"].get("configurationName", "")),
-                limit=3,
-            )
-        except ValueError:
-            pass
-    payload["cases"] = cases_payload
-
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    return plain_user_reply(format_connection_status_reply(payload))
 
 
 def _list_infobases_payload() -> list[dict]:
@@ -660,6 +765,42 @@ def _list_infobases_payload() -> list[dict]:
     if not isinstance(payload, list):
         raise RuntimeError("Неожиданный формат списка баз.")
     return payload
+
+
+@mcp.tool()
+def onec_confirm_credentials(
+    user: str,
+    info_base_name: str = "",
+    info_base_path: str = "",
+    password: str = "",
+    password_acknowledged: bool = False,
+) -> str:
+    """Фиксирует ответы из question: база, пользователь 1С, пароль. Перед onec_connect."""
+    user = user.strip()
+    info_base = (info_base_name or info_base_path).strip()
+    if not user:
+        return plain_user_reply("Укажите пользователя 1С (не логин Windows).")
+    if not info_base:
+        return plain_user_reply("Укажите базу из onec_list_infobases.")
+
+    password_block = credentials_password_gate_message(
+        ROOT,
+        password_acknowledged=password_acknowledged,
+    )
+    if password_block:
+        return plain_user_reply(password_block)
+
+    mark_credentials_confirmed(
+        ROOT,
+        user=user,
+        info_base=info_base,
+        password_acknowledged=True,
+    )
+    password_note = "пароль не указан (пустой)" if not password.strip() else "пароль принят"
+    return plain_user_reply(
+        f"Учётные данные записаны: база «{info_base}», пользователь «{user}», {password_note}. "
+        "Теперь вызовите onec_connect с теми же user, info_base_name и password."
+    )
 
 
 @mcp.tool()
@@ -674,7 +815,9 @@ def onec_connect(
     connection_string: str = "",
     refresh_metadata: bool = False,
 ) -> str:
-    """Подключение к ИБ 1С (read-only). Обязателен user.
+    """Подключение к ИБ 1С (read-only). Обязателен user. Ответ — русский текст, не JSON.
+
+    Сначала onec_confirm_credentials после question (база, пользователь 1С, пароль).
 
     Предпочтительно: info_base_name — имя или номер (1, 2, …) из onec_list_infobases.
     Альтернатива: info_base_path — только каталог (без префикса File=).
@@ -713,6 +856,18 @@ def onec_connect(
             "или info_base_path=\"C:\\\\Users\\\\...\\\\DemoTrd\"."
         )
 
+    credentials_block = credentials_gate_message(ROOT)
+    if credentials_block:
+        return plain_user_reply(credentials_block)
+
+    workflow = load_workflow(ROOT)
+    confirmed_user = str(workflow.get("credentialsUser") or "").strip()
+    if confirmed_user.lower() != user.strip().lower():
+        return plain_user_reply(
+            f"Пользователь «{user}» не совпадает с принятым в onec_confirm_credentials "
+            f"(«{confirmed_user}»). Сначала confirm_credentials с ответами пользователя."
+        )
+
     previous = resolve_connection(ROOT, _memory_session)
     ib_display_name = info_base_name.strip()
 
@@ -723,6 +878,19 @@ def onec_connect(
         server = resolved.get("server", "").strip()
         ref = resolved.get("ref", "").strip()
         ib_display_name = str(resolved.get("display_name") or ib_display_name).strip()
+
+    confirmed_base = str(workflow.get("credentialsBase") or "").strip()
+    base_candidate = (ib_display_name or info_base_name or info_base_path or server).strip()
+    if confirmed_base and base_candidate:
+        base_match = (
+            confirmed_base.lower() in base_candidate.lower()
+            or base_candidate.lower() in confirmed_base.lower()
+        )
+        if not base_match:
+            return plain_user_reply(
+                f"База «{base_candidate}» не совпадает с onec_confirm_credentials "
+                f"(«{confirmed_base}»)."
+            )
 
     if info_base_path:
         info_base_path = normalize_info_base_path(info_base_path)
@@ -759,22 +927,31 @@ def onec_connect(
 
     _store_session(session)
 
-    args = build_connection_args(session, include_prefer_version=False)
-    args.extend([
-        "-AgentMode",
-        "-Query",
-        "ВЫБРАТЬ 1 КАК Connected",
-        "-MaxRows",
-        "1",
-    ])
-    output_payload = _run_powershell_json(args, timeout=420)
-    if str(output_payload.get("status", "")).lower() == "error":
-        message = str(output_payload.get("message", "Ошибка подключения к базе."))
-        error_kind = str(output_payload.get("errorKind") or classify_connect_error(message))
-        hint = agent_hint_for_error(error_kind, str(ROOT / "Register-1CCom.cmd"))
-        raise RuntimeError(f"{message}\n\n{hint}")
+    bridge_payload = _connect_via_bridge(session)
+    bridge_note = ""
+    if bridge_payload:
+        output_payload = bridge_payload
+    else:
+        bridge_note = _bridge_note_for_session(session)
+        args = build_connection_args(session, include_prefer_version=False)
+        args.extend([
+            "-AgentMode",
+            "-Query",
+            "ВЫБРАТЬ 1 КАК Connected",
+            "-MaxRows",
+            "1",
+        ])
+        output_payload = _run_powershell_json(args, timeout=420)
+        if str(output_payload.get("status", "")).lower() == "error":
+            message = str(output_payload.get("message", "Ошибка подключения к базе."))
+            error_kind = str(output_payload.get("errorKind") or classify_connect_error(message))
+            hint = agent_hint_for_error(error_kind, str(ROOT / "Register-1CCom.cmd"))
+            raise RuntimeError(f"{message}\n\n{hint}")
+        output_payload["via"] = "com"
 
-    payload = output_payload
+    payload = dict(output_payload)
+    if bridge_note:
+        payload["bridgeNote"] = bridge_note
     payload["status"] = "ok"
     payload["connection"] = public_view(session)
     payload["target_changed"] = target_changed
@@ -801,7 +978,15 @@ def onec_connect(
             "для этой базы."
         )
 
+    status_ok = str(payload.get("status", "")).lower() == "ok"
+    connected_flag = payload.get("connected")
+    if not status_ok or connected_flag is False:
+        return plain_user_reply(
+            "Подключение не подтверждено. Проверьте пользователя 1С и пароль, повторите connect."
+        )
+
     _mark_verified(session)
+    mark_connected(ROOT)
 
     metadata_manifest: dict[str, Any] | None = None
     reused_cache = False
@@ -845,27 +1030,72 @@ def onec_connect(
         payload["metadata_export"] = metadata_manifest
     if reused_cache:
         payload["metadata_note"] = "Использован существующий кэш метаданных."
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+    return plain_user_reply(format_connect_reply(payload), followup=CONNECT_FOLLOWUP)
+
+
+@mcp.tool()
+def onec_set_task_type(task_id: str, label: str = "") -> str:
+    """Фиксирует выбор пользователя в question (investigation, requirements, …). Не симптом."""
+    try:
+        mark_task_type(ROOT, task_id, label=label)
+    except ValueError as error:
+        return plain_user_reply(str(error))
+
+    return plain_user_reply(task_type_followup_message(ROOT))
+
+
+@mcp.tool()
+def onec_declare_symptom(symptom: str) -> str:
+    """Фиксирует текстовое описание задачи от пользователя. Не label кнопки question."""
+    text = (symptom or "").strip()
+    ok, error_text = validate_symptom(text)
+    if not ok:
+        reject_count = record_symptom_rejection(ROOT)
+        if reject_count >= 2:
+            error_text = (
+                f"{error_text}\n\n"
+                "Повтор declare_symptom заблокирован. Дождитесь ответа пользователя в чат."
+            )
+        return plain_user_reply(error_text)
+
+    mark_symptom(ROOT, text)
+    return plain_user_reply(
+        f"Задача зафиксирована: {text[:200]}{'…' if len(text) > 200 else ''}"
+    )
 
 
 @mcp.tool()
 def onec_refresh_metadata(force: bool = False) -> str:
-    """Принудительно обновляет кэш метаданных конфигурации из подключённой ИБ."""
+    """Обновляет кэш метаданных из ИБ. Ответ — короткий текст, без JSON."""
+    blocked = _gate_live_reply()
+    if blocked:
+        return blocked
+
     manifest = _refresh_metadata(force=force)
-    return json.dumps(manifest, ensure_ascii=False, indent=2)
+    return plain_user_reply(format_refresh_metadata_reply(manifest))
 
 
 @mcp.tool()
 def onec_metadata_status() -> str:
-    """Возвращает статус кэша метаданных текущей конфигурации."""
+    """Статус кэша метаданных (текст для пользователя, без JSON)."""
     session = _current_session()
     payload = metadata_status(ROOT, _metadata_cache_relative(), session)
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    return plain_user_reply(format_metadata_status_reply(payload))
 
 
 @mcp.tool()
 def onec_metadata_search(query: str, limit: int = 20) -> str:
     """Ищет объекты метаданных по имени, синониму или типу в кэше конфигурации."""
+    blocked = _gate_live_reply()
+    if blocked:
+        return blocked
+
+    symptom = declared_symptom(ROOT)
+    query_ok, query_error = validate_investigation_query(symptom, query)
+    if not query_ok:
+        return plain_user_reply(query_error)
+
     session = _current_session() or {}
     payload = metadata_search(ROOT, _metadata_cache_relative(), query, limit, session)
     return json.dumps(payload, ensure_ascii=False, indent=2)
@@ -874,6 +1104,10 @@ def onec_metadata_search(query: str, limit: int = 20) -> str:
 @mcp.tool()
 def onec_metadata_object(full_name: str) -> str:
     """Возвращает карточку объекта метаданных: реквизиты, ТЧ, измерения регистра."""
+    blocked = _gate_live_reply()
+    if blocked:
+        return blocked
+
     session = _current_session() or {}
     payload = metadata_object(ROOT, _metadata_cache_relative(), full_name, session)
     return json.dumps(payload, ensure_ascii=False, indent=2)
@@ -881,30 +1115,57 @@ def onec_metadata_object(full_name: str) -> str:
 
 @mcp.tool()
 def onec_search_cases(query: str, limit: int = 5) -> str:
-    """Ищет похожие кейсы расследований. Вызывать перед расследованием."""
+    """Ищет похожие кейсы расследований.
+
+    Ответ для агента: поле userSummaries — показывать пользователю; matches — только внутренне.
+    Вызывать после onec_declare_symptom, не вместо приветствия и question.
+    """
+    blocked = _gate_investigation_reply()
+    if blocked:
+        return blocked
+
     session = _current_session() or {}
-    payload = search_cases(
+    raw = search_cases(
         ROOT,
         query,
         configuration_name=str(session.get("configuration_name", "")),
         database_name=_obsidian_database_from_session(session),
         limit=limit,
     )
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    return plain_user_reply(format_cases_reply(raw.get("userSummaries") or []))
 
 
 @mcp.tool()
-def onec_get_case(case_id: str) -> str:
-    """Возвращает полный кейс расследования по id."""
-    payload = get_case(ROOT, case_id)
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+def onec_get_case(case_id: str, full: bool = False) -> str:
+    """Возвращает кейс по id. По умолчанию компактно; full=true — все поля (только для агента)."""
+    blocked = _gate_investigation_reply()
+    if blocked:
+        return blocked
+
+    case = get_case(ROOT, case_id)
+    session = _current_session() or {}
+    summary = compact_case_summary(
+        case,
+        current_configuration=str(session.get("configuration_name", "")),
+    )
+
+    if full:
+        lines = [
+            format_get_case_reply(summary),
+            "",
+            f"Решение: {str(case.get('correctSolution') or '').strip()}",
+            f"Неверный путь: {str(case.get('wrongApproach') or '').strip()}",
+        ]
+        return plain_user_reply("\n".join(part for part in lines if part))
+
+    return plain_user_reply(format_get_case_reply(summary))
 
 
 @mcp.tool()
 def onec_investigation_status() -> str:
-    """Активное расследование в сессии: case_id и путь заметки Sessions для дополнения."""
+    """Активное расследование в сессии (короткий текст, без JSON)."""
     payload = tracker_status(ROOT)
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    return plain_user_reply(format_investigation_status_reply(payload))
 
 
 @mcp.tool()
@@ -988,11 +1249,8 @@ def onec_save_case(
     except OSError as error:
         payload["obsidian"] = {"saved": False, "error": str(error)}
 
-    payload["agent_action"] = (
-        "AGENT_ACTION: при доп. вопросах — onec_save_case(case_id=..., additional_notes=...) "
-        "и onec_obsidian_append_session. Ищите позже через onec_search_cases в Obsidian."
-    )
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    status_value = str(payload.get("status", status)).lower()
+    return plain_user_reply(format_save_case_reply(status_value))
 
 
 @mcp.tool()
@@ -1003,28 +1261,42 @@ def onec_disconnect() -> str:
     _memory_session = None
     _clear_verified()
     clear_session(ROOT)
-    return json.dumps({"connected": False, "session_saved": False}, ensure_ascii=False, indent=2)
+    clear_workflow(ROOT)
+    global _welcome_shown_in_chat
+    _welcome_shown_in_chat = False
+    return plain_user_reply("Подключение к базе сброшено.")
 
 
 @mcp.tool()
 def onec_check_connection() -> str:
     """Проверяет подключение к текущей базе простым read-only запросом."""
-    args = _connection_args()
-    args.extend([
-        "-AgentMode",
-        "-Query",
-        "ВЫБРАТЬ 1 КАК Connected",
-        "-MaxRows",
-        "1",
-    ])
-    payload = _run_powershell_json(args)
-    if str(payload.get("status", "")).lower() == "error":
-        raise RuntimeError(str(payload.get("message", "Ошибка проверки подключения.")))
-    payload["status"] = "ok"
-    payload["connection"] = public_view(_get_connection())
-    payload["metadata"] = metadata_status(ROOT, _metadata_cache_relative(), _get_connection())
-    _mark_verified(_get_connection())
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    connection = _get_connection()
+    bridge_payload = _connect_via_bridge(connection)
+    if bridge_payload:
+        payload = dict(bridge_payload)
+    else:
+        args = _connection_args()
+        args.extend([
+            "-AgentMode",
+            "-Query",
+            "ВЫБРАТЬ 1 КАК Connected",
+            "-MaxRows",
+            "1",
+        ])
+        payload = _run_powershell_json(args)
+        if str(payload.get("status", "")).lower() == "error":
+            raise RuntimeError(str(payload.get("message", "Ошибка проверки подключения.")))
+        payload["status"] = "ok"
+        payload["via"] = "com"
+        bridge_note = _bridge_note_for_session(connection)
+        if bridge_note:
+            payload["bridgeNote"] = bridge_note
+
+    payload["connection"] = public_view(connection)
+    payload["metadata"] = metadata_status(ROOT, _metadata_cache_relative(), connection)
+    _mark_verified(connection)
+
+    return plain_user_reply(format_check_connection_reply(payload))
 
 
 @mcp.tool()
@@ -1219,7 +1491,15 @@ def onec_config_search_code(
 
 @mcp.tool()
 def onec_query(query: str, max_rows: int = 500) -> str:
-    """Выполняет read-only запрос на языке запросов 1С и возвращает JSON с данными."""
+    """Выполняет read-only запрос на языке запросов 1С и возвращает JSON с данными.
+
+    При запущенном Bridge Agent (bridge/agent/bridge-agent.json + оркестратор) запрос
+    идёт через долгоживущий COM; иначе — Get-1CData.ps1 (новое COM на каждый вызов).
+    """
+    blocked = _gate_live_reply()
+    if blocked:
+        return blocked
+
     if not query or not query.strip():
         raise ValueError("Параметр query не может быть пустым.")
 
@@ -1232,6 +1512,21 @@ def onec_query(query: str, max_rows: int = 500) -> str:
     if max_rows > 5000:
         max_rows = 5000
 
+    connection = _get_connection()
+    config = load_bridge_config()
+    if bridge_is_usable_for_session(connection, config):
+        try:
+            payload = bridge_execute_query(query, max_rows=max_rows, config=config)
+            return json.dumps(payload, ensure_ascii=False, indent=2)
+        except (RuntimeError, ValueError) as error:
+            bridge_fallback_note = (
+                f"Bridge недоступен ({error}); повтор через COM (Get-1CData.ps1)."
+            )
+    elif config and session_matches_bridge(connection, config):
+        bridge_fallback_note = _bridge_note_for_session(connection)
+    else:
+        bridge_fallback_note = ""
+
     args = _connection_args()
     args.extend([
         "-AgentMode",
@@ -1241,6 +1536,9 @@ def onec_query(query: str, max_rows: int = 500) -> str:
         str(max_rows),
     ])
     payload = _run_powershell_json(args)
+    payload["via"] = "com"
+    if bridge_fallback_note:
+        payload["bridgeNote"] = bridge_fallback_note
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
@@ -1273,6 +1571,10 @@ def onec_web_search_forums(
     limit: int = 5,
 ) -> str:
     """Ищет по форумам 1С (Infostart, Mista и др.). Результаты могут быть неактуальны для вашей версии конфигурации."""
+    blocked = _gate_investigation_reply()
+    if blocked:
+        return blocked
+
     payload = search_forums_payload(
         ROOT,
         query,
@@ -1286,6 +1588,15 @@ def onec_web_search_forums(
 @mcp.tool()
 def onec_its_search(query: str, database: str = "v8std", limit: int = 5) -> str:
     """Поиск в документации 1С:ИТС. Без учётных данных вернёт AGENT_ACTION — спроси логин/пароль и onec_its_configure."""
+    blocked = _gate_investigation_reply()
+    if blocked:
+        return blocked
+
+    symptom = declared_symptom(ROOT)
+    query_ok, query_error = validate_investigation_query(symptom, query)
+    if not query_ok:
+        return plain_user_reply(query_error)
+
     payload = search_its_payload(ROOT, query, database=database, limit=limit, its_memory=_its_memory)
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -1293,6 +1604,10 @@ def onec_its_search(query: str, database: str = "v8std", limit: int = 5) -> str:
 @mcp.tool()
 def onec_its_fetch(url: str, max_chars: int = 12000) -> str:
     """Загружает текст статьи с its.1c.ru. Без учётных данных вернёт AGENT_ACTION."""
+    blocked = _gate_investigation_reply()
+    if blocked:
+        return blocked
+
     if max_chars < 1000:
         max_chars = 1000
     if max_chars > 50000:
@@ -1493,6 +1808,10 @@ def onec_obsidian_search_handbooks(
 @mcp.tool()
 def onec_bitmedic_guidance(query: str, configuration_name: str = "") -> str:
     """Подсказка поиска на info.bitmedic.ru для отраслевых конфигураций БИТ.Медицина."""
+    blocked = _gate_investigation_reply()
+    if blocked:
+        return blocked
+
     session = _current_session() or {}
     config = configuration_name or str(session.get("configuration_name", ""))
     payload = bitmedic_search_guidance(query, configuration_name=config)

@@ -29,6 +29,10 @@ metadata/library/*
 # Локальные настройки сессий 1С
 .onec-config-sources.json
 .onec-investigation.json
+.onec-workflow.json
+
+# Bridge Agent (пароли, локальный конфиг)
+bridge/agent/bridge-agent.json
 
 # Obsidian vault (пользовательские заметки)
 .Obsidian/*

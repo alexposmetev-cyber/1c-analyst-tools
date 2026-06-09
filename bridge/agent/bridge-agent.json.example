@@ -1,0 +1,18 @@
+{
+  "bridge_id": "demotrd",
+  "bridge_token": "change-me-local-demo-token",
+  "orchestrator_url": "http://127.0.0.1:8787",
+  "poll_interval_sec": 2,
+  "poll_wait_sec": 25,
+  "heartbeat_interval_sec": 60,
+  "query_max_rows": 500,
+  "platform_path": "",
+  "connection": {
+    "info_base_path": "C:\\Users\\aaposmetev\\Documents\\1C\\DemoTrd",
+    "info_base_name": "",
+    "server": "",
+    "ref": "",
+    "user": "Администратор",
+    "password": ""
+  }
+}

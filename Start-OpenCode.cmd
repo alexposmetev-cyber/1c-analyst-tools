@@ -1,15 +1,7 @@
-@echo off
-setlocal
-cd /d "%~dp0"
-
-if exist "%~dp0opencode.local.json" set "OPENCODE_CONFIG=%~dp0opencode.local.json"
-
-if exist "%~dp0bin\opencode.exe" (
-    "%~dp0bin\opencode.exe"
-) else (
-    echo bin\opencode.exe не найден. Запустите scripts\Update-OpenCode.cmd
-    pause
-    exit /b 1
-)
-
-endlocal
+@echo off
+setlocal
+cd /d "%~dp0"
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Start-BridgeStack.ps1" -Quiet
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Start-OpenCodeApp.ps1"

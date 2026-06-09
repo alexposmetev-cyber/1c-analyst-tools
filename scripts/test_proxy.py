@@ -8,12 +8,29 @@ import os
 import sys
 import time
 import urllib.request
+from pathlib import Path
 
 BASE = "http://127.0.0.1:18765"
 
 
-def main() -> int:
+def _load_api_key() -> str:
     key = os.environ.get("ONEBITAI_API_KEY", "").strip()
+    if key:
+        return key
+    local = Path(__file__).resolve().parent.parent / "opencode.local.json"
+    if local.is_file():
+        try:
+            data = json.loads(local.read_text(encoding="utf-8"))
+            key = str(data.get("provider", {}).get("1bitai", {}).get("options", {}).get("apiKey", "")).strip()
+            if key and not key.startswith("{env:"):
+                return key
+        except (OSError, json.JSONDecodeError, AttributeError):
+            pass
+    return ""
+
+
+def main() -> int:
+    key = _load_api_key()
     if not key:
         print("FAIL: ONEBITAI_API_KEY не задан")
         return 1
@@ -122,6 +139,25 @@ def main() -> int:
             print(body[:500])
             return 1
         print("OK history_without_tools")
+
+    empty_tools = {
+        "model": "ollama/qwen3-coder:latest",
+        "messages": [{"role": "user", "content": "да"}],
+        "stream": True,
+        "tools": [],
+    }
+    request = urllib.request.Request(
+        f"{BASE}/v1/chat/completions",
+        data=json.dumps(empty_tools).encode(),
+        headers=headers,
+    )
+    with urllib.request.urlopen(request, timeout=120) as response:
+        body = response.read().decode("utf-8", "replace")
+        if "Operation not allowed" in body:
+            print("FAIL empty_tools: Operation not allowed")
+            print(body[:500])
+            return 1
+        print("OK empty_tools")
 
     print("ALL CHECKS PASSED")
     return 0

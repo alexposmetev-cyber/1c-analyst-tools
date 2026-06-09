@@ -50,7 +50,8 @@ def _capabilities() -> list[dict[str, str]]:
                 "onec_connect — подключение к ИБ (read-only)",
                 "onec_connection_status / onec_check_connection — статус сессии",
                 "onec_disconnect — сброс подключения",
-                "onec_query — запрос ВЫБРАТЬ/SELECT к данным (по согласию)",
+                "onec_bridge_status — Bridge Agent (оркестратор + долгий COM для onec_query)",
+                "onec_query — запрос ВЫБРАТЬ/SELECT (через Bridge или COM, по согласию)",
             ],
         },
         {
@@ -78,7 +79,9 @@ def _capabilities() -> list[dict[str, str]]:
                 "onec_dump_config — выгрузка конфигурации в файлы (partial/full, нужен connect)",
                 "onec_config_read_module / onec_config_search_code — анализ BSL из XML",
                 "onec_read_module — запасной: модуль через конфигуратор (COM не читает код)",
-                "onec_search_cases / onec_get_case — библиотека кейсов (JSON + Obsidian)",
+                "onec_set_task_type — выбор в question (investigation, requirements, …); не симптом",
+                "onec_declare_symptom — текстовое описание задачи от пользователя (не label кнопки)",
+                "onec_search_cases / onec_get_case — библиотека кейсов",
                 "onec_save_case — draft при приближении к решению, final в конце; дополнять по case_id",
                 "onec_investigation_status — активный case_id и пути заметок",
             ],
@@ -187,12 +190,13 @@ def build_welcome_payload(
         "agent_action": (
             "AGENT_ACTION: 1) Покажите пользователю только formatted_user (коротко, без MCP). "
             "2) Сразу в том же ответе вызовите question с title/prompt/options из поля question. "
-            "3) Не выводите formatted (список инструментов) в чат. "
-            "4) После выбора — skill по hint из user_menu; затем уточнения и при live — база."
+            "3) Не выводите formatted, JSON инструментов, кейсы, onec_save_case в чат. "
+            "4) До question запрещены onec_search_cases, onec_connect, onec_save_case. "
+            "5) После выбора — уточните задачу; при live — база."
         ),
         "first_step": (
-            "Дождаться выбора в question. При investigation/requirements — уточнить симптом и доступ к ИБ. "
-            "При continue — тип задачи из первого сообщения пользователя."
+            "Дождаться выбора в question. Затем спросить суть задачи своими словами. "
+            "onec_search_cases — только после описания симптома пользователем."
         ),
     }
 
@@ -277,7 +281,9 @@ def welcome_payload_json(
     memory_session: dict[str, str] | None,
     session_reset: dict[str, Any] | None = None,
 ) -> str:
+    from agent_reply import welcome_plain_text
+
     payload = build_welcome_payload(root, memory_session, session_reset=session_reset)
     payload["formatted_user"] = format_welcome_user_text(payload)
     payload["formatted"] = format_welcome_text(payload)
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    return welcome_plain_text(payload)

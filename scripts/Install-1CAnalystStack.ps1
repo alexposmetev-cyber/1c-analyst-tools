@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Установка стека 1C Analyst Tools: Python, MCP, OpenCode, Obsidian.
@@ -139,7 +139,7 @@ function Ensure-ProjectConfig {
     }
 
     Copy-Item -LiteralPath $example -Destination $localConfig
-    Write-Host "   Создан opencode.local.json из примера — настройте baseURL своей LLM"
+    Write-Host "   Создан opencode.local.json — задайте ONEBITAI_API_KEY (scripts\Set-1bitApiKey.ps1)"
 }
 
 function Ensure-ObsidianVault {
@@ -255,7 +255,8 @@ Write-Host "Установка завершена." -ForegroundColor Green
 Write-Host ""
 Write-Host "Дальше:"
 Write-Host "  1. COM 1С (один раз, админ Windows или IT):  .\Register-1CCom.cmd"
-Write-Host "  2. LLM:                 настройте opencode.local.json (OpenAI-compatible API, tool calling)"
-Write-Host "  3. Запуск агента:       .\Start-OpenCode.cmd"
-Write-Host "  4. Smoke-test:          .\scripts\Test-AnalystStack.ps1"
+Write-Host "  2. API 1bit AI:         .\scripts\Set-1bitApiKey.ps1  (klyuch kompanii)"
+Write-Host "  3. Bridge (опционально): copy bridge\agent\bridge-agent.json.example bridge\agent\bridge-agent.json"
+Write-Host "  4. Запуск агента:       .\Start-OpenCode.cmd  (Bridge стартует автоматически)"
+Write-Host "  5. Smoke-test:          .\scripts\Test-AnalystStack.ps1"
 Write-Host ""

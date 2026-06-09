@@ -279,6 +279,38 @@ def _rank_local_cases(
     return ranked
 
 
+def compact_case_summary(
+    case: dict[str, Any],
+    *,
+    current_configuration: str = "",
+) -> dict[str, Any]:
+    """Краткая карточка кейса для ответа пользователю (без полного JSON)."""
+    config = str(case.get("configurationName") or "").strip()
+    solution = str(case.get("correctSolution") or "").strip()
+    preview = solution[:220] + ("…" if len(solution) > 220 else "")
+    same_config = bool(
+        current_configuration
+        and config
+        and current_configuration.strip().lower() == config.lower()
+    )
+    warning = ""
+    if config and current_configuration and not same_config:
+        warning = (
+            f"Конфигурация кейса ({config}) не совпадает с текущей ({current_configuration}) — "
+            "только ориентир, не готовое решение."
+        )
+
+    return {
+        "id": str(case.get("id") or ""),
+        "symptom": str(case.get("symptom") or "").strip(),
+        "configurationName": config,
+        "status": str(case.get("status") or ""),
+        "solutionPreview": preview,
+        "sameConfiguration": same_config,
+        "warning": warning,
+    }
+
+
 def search_cases(
     root: Path,
     query: str,
@@ -328,6 +360,11 @@ def search_cases(
         unique_ranked.append((score, case))
 
     matches = [case for _, case in unique_ranked[:limit]]
+    user_summaries = [
+        compact_case_summary(case, current_configuration=configuration_name)
+        for case in matches
+    ]
+    same_config_count = sum(1 for item in user_summaries if item.get("sameConfiguration"))
 
     return {
         "query": query,
@@ -335,5 +372,13 @@ def search_cases(
         "databaseName": database_name or project_name,
         "count": len(matches),
         "matches": matches,
-        "mustReviewBeforeInvestigation": len(matches) > 0,
+        "userSummaries": user_summaries,
+        "sameConfigurationCount": same_config_count,
+        "mustReviewBeforeInvestigation": same_config_count > 0,
+        "agent_action": (
+            "AGENT_ACTION: пользователю показывайте только userSummaries (1–3 коротких пункта). "
+            "Запрещено вставлять matches, JSON, obsidian, agent_action. "
+            "Если sameConfigurationCount=0 — явно скажите, что кейсы с другой конфигурации и только для ориентира. "
+            "Перед onec_get_case уточните симптом у пользователя, если ещё не уточняли."
+        ),
     }

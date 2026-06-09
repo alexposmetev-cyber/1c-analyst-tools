@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Launcher для 1C Analyst — ввод подключения и запуск OpenCode с агентом 1c-analyst.
@@ -287,4 +287,10 @@ if (Test-Path -LiteralPath $localConfig) {
     $env:OPENCODE_CONFIG = $localConfig
 }
 
-& $opencode
+$launcher = Join-Path $ProjectRoot 'scripts\Start-OpenCodeApp.ps1'
+if (Test-Path -LiteralPath $launcher) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $launcher
+}
+else {
+    & $opencode web
+}

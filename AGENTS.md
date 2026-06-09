@@ -12,7 +12,7 @@
 
 Если неясно — спроси через `question`.
 
-**Новая сессия:** `onec_welcome` → `formatted_user` + **question** (меню задач, без MCP в чате) → после выбора — skill и при live база (см. `WELCOME.md`).
+**Новая сессия:** `onec_welcome` + **question** → уточнить задачу → skill и при live база. Ответы `onec_connect`, `onec_welcome` и др. — **готовый русский текст**, передать как есть, без JSON.
 
 ## Live
 

@@ -26,8 +26,8 @@ cd 1c-analyst-tools
 **После установки:**
 
 1. `.\Register-1CCom.cmd` — если не использовали `-RegisterCom`
-2. Настройте LLM в `opencode.local.json` (OpenAI-compatible API с **tool calling**)
-3. `.\Start-OpenCode.cmd` — агент **1c-analyst**
+2. API-ключ компании: `.\scripts\Set-1bitApiKey.ps1` (или переменная `ONEBITAI_API_KEY`)
+3. `.\Start-OpenCode.cmd` — веб-интерфейс OpenCode + агент **1c-analyst**, модель **1bitai/qwen3-coder**
 
 Публикация на GitHub: репозиторий = корень этой папки; секреты (`opencode.local.json`, `.onec-*`) в `.gitignore`.
 
@@ -217,11 +217,25 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\Fix-AllPs1Utf
 
 **Профилактика BOM:** в каталоге есть `.editorconfig` и `.vscode/settings.json` — Cursor сохраняет `.ps1` в UTF-8 BOM. Если правите скрипты вне Cursor — снова запустите Fix-скрипт.
 
-### 3. Локальная модель
+### 3. Модели
 
-В [`opencode.json`](opencode.json) провайдер `local` — OpenAI-compatible API. Модель: `local/default`. Нужна LLM с **tool calling**.
+В UI доступны **все** провайдеры OpenCode (встроенные, подключённые через `/connect`) плюс проектные:
 
-Endpoint укажите в `opencode.local.json` (пример: [`opencode.local.json.example`](opencode.local.json.example) — Ollama `http://127.0.0.1:11434/v1` или другой сервер). Файл подхватывается через `$env:OPENCODE_CONFIG` в `Start-OpenCode.cmd`.
+| Провайдер | Модели / назначение |
+|-----------|---------------------|
+| **1bit AI** (`1bitai`) | `qwen3-coder` — **по умолчанию** для агента 1c-analyst; `qwen3.5-35b` — альтернатива |
+| **Local LLM** (`local`) | Ollama / совместимый endpoint `http://127.0.0.1:11434/v1` |
+| **OpenCode** и др. | встроенные и авторизованные провайдеры — выбор в списке моделей |
+
+Прокси **1bitai** → `http://127.0.0.1:18765/v1` → `https://api.1bitai.ru`.
+
+API-ключ (один раз):
+
+```powershell
+.\scripts\Set-1bitApiKey.ps1
+```
+
+Или вручную: переменная пользователя Windows `ONEBITAI_API_KEY`, либо `provider.1bitai.options.apiKey` в `opencode.local.json` (файл в `.gitignore`).
 
 ### 4. Запуск (основной сценарий — только OpenCode)
 
@@ -233,7 +247,9 @@ cd /d "d:\старый ноут\Cursor\1c-analyst-tools"
 .\Start-OpenCode.cmd
 ```
 
-В PowerShell: `.\Start-OpenCode.cmd`. Используется `bin\opencode.exe` (1.16+), если есть.
+Скрипт: Bridge (если настроен) → прокси 1bit AI → **`opencode web`** (браузер, не консольный TUI). Используется `bin\opencode.exe` (1.16+).
+
+При наличии `bridge/agent/bridge-agent.json` автоматически поднимается Bridge Agent для стабильного `onec_query`.
 
 3. Агент **1c-analyst** выбран по умолчанию. Опишите проблему в чате.
 4. Агент определит режим (**live** / **offline** / **research**) и при необходимости запросит базу или доступ к ИТС.
