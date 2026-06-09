@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Zapuskaet orchestrator i Bridge Agent, esli eshche ne rabotayut.

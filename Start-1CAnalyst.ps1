@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Launcher для 1C Analyst — ввод подключения и запуск OpenCode с агентом 1c-analyst.

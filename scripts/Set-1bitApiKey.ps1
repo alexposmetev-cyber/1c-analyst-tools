@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Сохраняет API-ключ 1bit AI в переменную пользователя Windows ONEBITAI_API_KEY.

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     1C Bridge Agent — долгоживущий COM-мост к оркестратору (poll/result).

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Podgotovka steka (Bridge, proksi 1bit AI) i zapusk OpenCode web v brauzere.

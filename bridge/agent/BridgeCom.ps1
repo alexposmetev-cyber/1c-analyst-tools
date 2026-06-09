@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 Set-StrictMode -Version Latest
 
 $script:BridgeProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path

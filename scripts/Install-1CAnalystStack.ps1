@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Установка стека 1C Analyst Tools: Python, MCP, OpenCode, Obsidian.
