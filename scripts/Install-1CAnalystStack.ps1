@@ -17,7 +17,8 @@ param(
     [switch]$SkipObsidian,
     [switch]$SkipGit,
     [switch]$SkipOpenCode,
-    [switch]$RegisterCom
+    [switch]$RegisterCom,
+    [switch]$SkipCorporateSsl
 )
 
 Set-StrictMode -Version Latest
@@ -219,6 +220,15 @@ Write-Step "Конфигурация LLM"
 Write-Host "   Установщик не ставит LLM — настройте endpoint в opencode.local.json"
 Ensure-ProjectConfig
 
+Write-Step "Корпоративный SSL"
+if ($SkipCorporateSsl) {
+    Write-Host "   Пропуск (-SkipCorporateSsl)"
+}
+else {
+    . (Join-Path $ProjectRoot 'scripts\CorporateSsl.ps1')
+    Install-CorporateSslProfile -ProjectRoot $ProjectRoot -PersistUserEnv | Out-Null
+}
+
 Write-Step "COM 1С"
 if ($RegisterCom) {
     $registerCmd = Join-Path $ProjectRoot 'Register-1CCom.cmd'
@@ -256,7 +266,8 @@ Write-Host ""
 Write-Host "Дальше:"
 Write-Host "  1. COM 1С (один раз, админ Windows или IT):  .\Register-1CCom.cmd"
 Write-Host "  2. API 1bit AI:         .\scripts\Set-1bitApiKey.ps1  (klyuch kompanii)"
-Write-Host "  3. Bridge (опционально): copy bridge\agent\bridge-agent.json.example bridge\agent\bridge-agent.json"
-Write-Host "  4. Запуск агента:       .\Start-OpenCode.cmd  (Bridge стартует автоматически)"
-Write-Host "  5. Smoke-test:          .\scripts\Test-AnalystStack.ps1"
+Write-Host "  3. Корп. SSL (если нет): .\Set-CorporateSsl.cmd  (или install\corporate-ssl.json enabled=false)"
+Write-Host "  4. Bridge (опционально): copy bridge\agent\bridge-agent.json.example bridge\agent\bridge-agent.json"
+Write-Host "  5. Запуск агента:       .\Start-OpenCode.cmd  (Bridge стартует автоматически)"
+Write-Host "  6. Smoke-test:          .\scripts\Test-AnalystStack.ps1"
 Write-Host ""

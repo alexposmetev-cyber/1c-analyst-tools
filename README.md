@@ -31,6 +31,8 @@ cd 1c-analyst-tools
 
 Публикация на GitHub: репозиторий = корень этой папки; секреты (`opencode.local.json`, `.onec-*`) в `.gitignore`.
 
+**Корпоративный SSL** (MITM-прокси, свой корневой сертификат): в комплекте [`install/corporate-ssl.json`](install/corporate-ssl.json) (`enabled: true` по умолчанию). `Install.cmd` создаёт `.onec-web.json` с `verify_ssl: false`, выставляет `ONEC_WEB_VERIFY_SSL` / `ONEBITAI_VERIFY_SSL` и обходит проверку TLS при скачивании OpenCode. Отключить: `enabled: false` в manifest или `.\scripts\Apply-CorporateSsl.ps1 -Disable`.
+
 **Ошибка winget / msstore / сертификат** (корпоративная сеть): установщик использует только `--source winget`. Если Python уже ставили вручную — закройте cmd и снова запустите `Install.cmd`.
 
 ## Архитектура
@@ -184,7 +186,7 @@ C:\Windows\System32\regsvr32.exe "C:\Program Files\1cv8\8.3.27.1964\bin\comcntr.
 
 Опционально: env `ONEC_ITS_USER`, `ONEC_ITS_PASSWORD` или заранее заполненный `.onec-web.json` (см. example).
 
-Если поиск падает с ошибкой SSL (корпоративный прокси): в `.onec-web.json` задайте `"verify_ssl": false` или `ONEC_WEB_VERIFY_SSL=false`.
+При корпоративном прокси обход TLS включается установщиком (см. выше). Вручную: `.\Set-CorporateSsl.cmd` или `"verify_ssl": false` в `.onec-web.json`.
 
 В [`opencode.json`](opencode.json) при необходимости замените команду MCP:
 

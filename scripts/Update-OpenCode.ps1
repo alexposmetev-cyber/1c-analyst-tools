@@ -12,6 +12,10 @@ $zip = Join-Path $env:TEMP 'opencode-windows-x64.zip'
 $extract = Join-Path $env:TEMP 'opencode-upgrade'
 $binDir = Join-Path $PSScriptRoot '..\bin'
 $target = Join-Path $binDir 'opencode.exe'
+$projectRoot = Split-Path $PSScriptRoot -Parent
+
+. (Join-Path $PSScriptRoot 'CorporateSsl.ps1')
+Enable-CorporateSslProcess -ProjectRoot $projectRoot | Out-Null
 
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 Write-Host "Скачивание $zipUrl ..."

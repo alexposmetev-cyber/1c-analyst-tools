@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import sys
 import time
 from pathlib import Path
@@ -72,6 +73,24 @@ MAX_RETRIES = 3
 
 def _log(message: str) -> None:
     sys.stderr.write(f"[1bitai-proxy] {message}\n")
+
+
+def _ssl_verify_enabled() -> bool:
+    value = os.environ.get("ONEBITAI_VERIFY_SSL", "").strip().lower()
+    if value in {"0", "false", "no"}:
+        return False
+    if value in {"1", "true", "yes"}:
+        return True
+    return True
+
+
+def _ssl_context() -> ssl.SSLContext | None:
+    if _ssl_verify_enabled():
+        return None
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
 
 
 def _has_tool_history(messages: list[Any]) -> bool:
@@ -214,8 +233,12 @@ def _forward(method: str, path: str, body: bytes | None, headers: dict[str, str]
         req_headers["Authorization"] = f"Bearer {api_key}"
 
     request = urllib.request.Request(url, data=body, headers=req_headers, method=method)
+    open_kwargs: dict[str, Any] = {"timeout": 300}
+    ssl_context = _ssl_context()
+    if ssl_context is not None:
+        open_kwargs["context"] = ssl_context
     try:
-        with urllib.request.urlopen(request, timeout=300) as response:
+        with urllib.request.urlopen(request, **open_kwargs) as response:
             return response.status, response.read(), response.headers.get_content_type()
     except urllib.error.HTTPError as error:
         payload = error.read()

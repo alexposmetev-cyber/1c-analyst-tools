@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "description": "Корпоративный MITM/прокси: не проверять TLS для ИТС, форумов, 1bit AI и загрузки OpenCode",
+  "verify_ssl": false,
+  "environment": {
+    "ONEC_WEB_VERIFY_SSL": "false",
+    "ONEBITAI_VERIFY_SSL": "false"
+  },
+  "powershell_skip_certificate_check": true
+}

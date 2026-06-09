@@ -11,6 +11,9 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path $PSScriptRoot -Parent
 
+. (Join-Path $PSScriptRoot 'CorporateSsl.ps1')
+Enable-CorporateSslProcess -ProjectRoot $ProjectRoot | Out-Null
+
 $localConfig = Join-Path $ProjectRoot 'opencode.local.json'
 if (Test-Path -LiteralPath $localConfig) {
     $env:OPENCODE_CONFIG = $localConfig

@@ -12,5 +12,5 @@
     "kb.1c.ru"
   ],
   "timeout_seconds": 30,
-  "verify_ssl": true
+  "verify_ssl": false
 }
