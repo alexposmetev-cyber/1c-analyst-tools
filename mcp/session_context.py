@@ -10,6 +10,17 @@ from connection_session import connection_target_key, load_session, public_view,
 from metadata_cache import metadata_status
 
 # Ключ — внутренний идентификатор; значения — фразы для поиска в нормализованном тексте.
+# Каноническое имя папки vault Obsidian для каждой группы конфигураций.
+CONFIGURATION_FOLDER_CANONICAL: dict[str, str] = {
+    "bit_medicine": "БИТ Управление медицинским центром",
+    "ut": "Управление торговлей",
+    "erp": "ERP Управление предприятием",
+    "accounting": "Бухгалтерия предприятия",
+    "zup": "Зарплата и управление персоналом",
+    "crm": "CRM",
+    "retail": "Розница",
+}
+
 CONFIGURATION_ALIASES: dict[str, tuple[str, ...]] = {
     "bit_medicine": (
         "бит",

@@ -264,6 +264,9 @@ def _normalize_session(data: dict[str, Any]) -> dict[str, str]:
         "obsidian_database": str(
             data.get("obsidian_database") or data.get("obsidianDatabase") or ""
         ).strip(),
+        "obsidian_vault_folder": str(
+            data.get("obsidian_vault_folder") or data.get("obsidianVaultFolder") or ""
+        ).strip(),
         "obsidian_project": str(
             data.get("obsidian_project") or data.get("project_name") or data.get("obsidianProject") or ""
         ).strip(),

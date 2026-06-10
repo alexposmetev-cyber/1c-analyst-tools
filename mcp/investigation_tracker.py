@@ -51,6 +51,9 @@ def register_investigation(
     case_id: str = "",
     case_relative_path: str = "",
     session_relative_path: str = "",
+    requirements_relative_path: str = "",
+    requirements_json_path: str = "",
+    requirements_id: str = "",
     status: str = "draft",
     symptom: str = "",
 ) -> dict[str, Any]:
@@ -58,17 +61,33 @@ def register_investigation(
         "caseId": case_id.strip(),
         "caseRelativePath": case_relative_path.strip(),
         "sessionRelativePath": session_relative_path.strip(),
+        "requirementsRelativePath": requirements_relative_path.strip(),
+        "requirementsJsonPath": requirements_json_path.strip(),
+        "requirementsId": requirements_id.strip(),
         "status": status.strip() or "draft",
         "symptom": symptom.strip()[:240],
         "startedAt": _now_iso(),
     }
     existing = load_tracker(root)
-    if existing and existing.get("caseId") == payload["caseId"]:
-        payload["startedAt"] = existing.get("startedAt", payload["startedAt"])
-        if not payload["caseRelativePath"]:
-            payload["caseRelativePath"] = str(existing.get("caseRelativePath", ""))
-        if not payload["sessionRelativePath"]:
-            payload["sessionRelativePath"] = str(existing.get("sessionRelativePath", ""))
+    if existing:
+        if payload["caseId"] and existing.get("caseId") == payload["caseId"]:
+            payload["startedAt"] = existing.get("startedAt", payload["startedAt"])
+            if not payload["caseRelativePath"]:
+                payload["caseRelativePath"] = str(existing.get("caseRelativePath", ""))
+            if not payload["sessionRelativePath"]:
+                payload["sessionRelativePath"] = str(existing.get("sessionRelativePath", ""))
+        else:
+            payload["startedAt"] = existing.get("startedAt", payload["startedAt"])
+            if not payload["caseRelativePath"]:
+                payload["caseRelativePath"] = str(existing.get("caseRelativePath", ""))
+            if not payload["sessionRelativePath"]:
+                payload["sessionRelativePath"] = str(existing.get("sessionRelativePath", ""))
+            if not payload["requirementsRelativePath"]:
+                payload["requirementsRelativePath"] = str(existing.get("requirementsRelativePath", ""))
+            if not payload["requirementsJsonPath"]:
+                payload["requirementsJsonPath"] = str(existing.get("requirementsJsonPath", ""))
+            if not payload["requirementsId"]:
+                payload["requirementsId"] = str(existing.get("requirementsId", ""))
     return save_tracker(root, payload)
 
 
@@ -77,6 +96,9 @@ def update_tracker_paths(
     *,
     case_relative_path: str = "",
     session_relative_path: str = "",
+    requirements_relative_path: str = "",
+    requirements_json_path: str = "",
+    requirements_id: str = "",
     status: str = "",
 ) -> dict[str, Any] | None:
     payload = load_tracker(root)
@@ -86,6 +108,12 @@ def update_tracker_paths(
         payload["caseRelativePath"] = case_relative_path.strip()
     if session_relative_path.strip():
         payload["sessionRelativePath"] = session_relative_path.strip()
+    if requirements_relative_path.strip():
+        payload["requirementsRelativePath"] = requirements_relative_path.strip()
+    if requirements_json_path.strip():
+        payload["requirementsJsonPath"] = requirements_json_path.strip()
+    if requirements_id.strip():
+        payload["requirementsId"] = requirements_id.strip()
     if status.strip():
         payload["status"] = status.strip()
     return save_tracker(root, payload)
@@ -107,12 +135,16 @@ def tracker_status(root: Path) -> dict[str, Any]:
         "case_id": payload.get("caseId", ""),
         "case_relative_path": payload.get("caseRelativePath", ""),
         "session_relative_path": payload.get("sessionRelativePath", ""),
+        "requirements_relative_path": payload.get("requirementsRelativePath", ""),
+        "requirements_json_path": payload.get("requirementsJsonPath", ""),
+        "requirements_id": payload.get("requirementsId", ""),
         "status": payload.get("status", "draft"),
         "symptom": payload.get("symptom", ""),
         "started_at": payload.get("startedAt", ""),
         "updated_at": payload.get("updatedAt", ""),
         "agent_action": (
-            "AGENT_ACTION: дополняйте тот же кейс (case_id) и заметку сессии "
-            "(session_note_path из session_relative_path), не создавайте дубликаты."
+            "AGENT_ACTION: дополняйте тот же кейс (case_id), лист требований "
+            "(requirements_relative_path) и заметку сессии (session_relative_path), "
+            "не создавайте дубликаты."
         ),
     }

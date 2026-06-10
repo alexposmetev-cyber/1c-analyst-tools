@@ -77,6 +77,7 @@ from obsidian_vault import (
     prepare_requirements_context,
     resolve_context,
     resolve_database_name,
+    resolve_vault_folder_name,
     save_case_note,
     save_requirements_note,
     save_session_note,
@@ -556,9 +557,10 @@ def _current_session() -> dict[str, str] | None:
 
 
 def _obsidian_database_from_session(session: dict[str, str] | None) -> str:
+    """Имя папки vault: одна папка на конфигурацию (не на ИБ)."""
     if not session:
-        return resolve_database_name(None, analyst_root=ROOT)
-    return resolve_database_name(session, analyst_root=ROOT)
+        return resolve_vault_folder_name(None, analyst_root=ROOT)
+    return resolve_vault_folder_name(session, analyst_root=ROOT)
 
 
 def _persist_obsidian_context(
@@ -597,8 +599,11 @@ def _apply_infobase_labels(session: dict[str, str], *, display_name: str = "") -
 
     if label:
         updated["info_base_display_name"] = label
-        if not updated.get("obsidian_database", "").strip():
-            updated["obsidian_database"] = resolve_database_name(updated, analyst_root=ROOT)
+
+    vault_folder = resolve_vault_folder_name(updated, analyst_root=ROOT)
+    updated["obsidian_vault_folder"] = vault_folder
+    if not updated.get("obsidian_database", "").strip():
+        updated["obsidian_database"] = resolve_database_name(updated, analyst_root=ROOT)
 
     return updated
 
@@ -1680,9 +1685,19 @@ def onec_obsidian_save_requirements(
     extension_name: str = "",
     phase: str = "draft",
     slug: str = "",
+    keywords: str = "",
+    objects_used: str = "",
 ) -> str:
-    """Сохраняет лист требований в .Obsidian/{база}/Requirements/YYYY-MM-DD-slug.md"""
+    """Сохраняет или обновляет лист требований в Obsidian/{конфигурация}/Requirements/Дата_ЛистТребований_Название.md + JSON-кейс."""
     session = _current_session() or {}
+    tracker = load_tracker(ROOT) or {}
+    keyword_list = [part.strip() for part in keywords.split(",") if part.strip()]
+    object_list = [part.strip() for part in objects_used.split(";") if part.strip()]
+    linked_notes: list[str] = []
+    session_rel = str(tracker.get("sessionRelativePath", "")).strip()
+    if session_rel:
+        linked_notes.append(session_rel)
+
     payload = save_requirements_note(
         ROOT,
         title=title,
@@ -1693,6 +1708,22 @@ def onec_obsidian_save_requirements(
         session=session,
         phase=phase,
         slug=slug,
+        keywords=keyword_list,
+        objects_used=object_list,
+        linked_notes=linked_notes,
+        requirements_relative_path=str(tracker.get("requirementsRelativePath", "")),
+        requirements_id=str(tracker.get("requirementsId", "")),
+    )
+    register_investigation(
+        ROOT,
+        case_id=str(tracker.get("caseId", "")),
+        case_relative_path=str(tracker.get("caseRelativePath", "")),
+        session_relative_path=session_rel,
+        requirements_relative_path=str(payload.get("relative_path", "")),
+        requirements_json_path=str(payload.get("json_relative_path", "")),
+        requirements_id=str(payload.get("id", "")),
+        status=phase or str(tracker.get("status", "draft")),
+        symptom=str(tracker.get("symptom", title))[:240],
     )
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -1708,8 +1739,14 @@ def onec_obsidian_save_session(
     mode: str = "",
     slug: str = "",
 ) -> str:
-    """Сохраняет историю сессии в .Obsidian/{база}/Sessions/YYYY-MM-DD_HHMM-slug.md"""
+    """Сохраняет или обновляет заметку сессии в Obsidian/{конфигурация}/Sessions/Дата_Сессия_Название.md"""
     session = _current_session() or {}
+    tracker = load_tracker(ROOT) or {}
+    linked_notes: list[str] = []
+    requirements_rel = str(tracker.get("requirementsRelativePath", "")).strip()
+    if requirements_rel:
+        linked_notes.append(requirements_rel)
+
     payload = save_session_note(
         ROOT,
         summary=summary,
@@ -1720,8 +1757,9 @@ def onec_obsidian_save_session(
         session=session,
         mode=mode,
         slug=slug,
+        session_relative_path=str(tracker.get("sessionRelativePath", "")),
+        linked_notes=linked_notes,
     )
-    tracker = load_tracker(ROOT)
     if tracker and tracker.get("caseId"):
         register_investigation(
             ROOT,
