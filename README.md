@@ -81,7 +81,7 @@ cd 1c-analyst-tools
 **Рекомендуется (из PowerShell или cmd):**
 
 ```powershell
-cd "d:\старый ноут\Cursor\1c-analyst-tools"
+cd "....\1c-analyst-tools"
 .\Register-1CCom.cmd
 ```
 
@@ -108,7 +108,7 @@ Select-String InstalledLocation "$env:APPDATA\1C\1CEStart\1cestart.cfg"
 Затем укажите полный путь к `bin`, например:
 
 ```powershell
-.\Register-1CCom.cmd -PlatformPath "C:\Users\aaposmetev\AppData\Local\Programs\1cv8_x64\8.3.27.2130\bin"
+.\Register-1CCom.cmd -PlatformPath "C:\Users\...\AppData\Local\Programs\1cv8_x64\8.3.27.2130\bin"
 ```
 
 Или просто без параметров (автопоиск по `1cestart.cfg`):
@@ -120,14 +120,14 @@ Select-String InstalledLocation "$env:APPDATA\1C\1CEStart\1cestart.cfg"
 **Из cmd, Проводника (двойной клик) или Run:**
 
 ```bat
-cd /d "d:\старый ноут\Cursor\1c-analyst-tools"
+cd /d "d:\...\1c-analyst-tools"
 Register-1CCom.cmd
 ```
 
 **Из cmd одной строкой** (обязательно `powershell.exe` в начале):
 
 ```bat
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "d:\старый ноут\Cursor\1c-analyst-tools\Register-1CCom.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "d:\...\1c-analyst-tools\Register-1CCom.ps1"
 ```
 
 > Неверно в PowerShell: `-NoProfile -ExecutionPolicy Bypass -File ...` без `powershell.exe` — параметры не являются командой.  
@@ -245,7 +245,7 @@ API-ключ (один раз):
 2. Из каталога проекта:
 
 ```bat
-cd /d "d:\старый ноут\Cursor\1c-analyst-tools"
+cd /d "d:\...\Cursor\1c-analyst-tools"
 .\Start-OpenCode.cmd
 ```
 
@@ -335,7 +335,7 @@ Start-1CAnalyst.cmd
 ```powershell
 # Прямой запрос
 .\Get-1CData.ps1 `
-  -InfoBasePath "C:\Users\aaposmetev\Documents\1C\DemoTrd" `
+  -InfoBasePath "C:\Users\...\Documents\1C\DemoTrd" `
   -User "Администратор" `
   -QueryFile ".\queries\customer_orders.txt" `
   -AgentMode
@@ -356,7 +356,7 @@ Start-1CAnalyst.cmd
 ## Тестовый сценарий (DemoTrd)
 
 1. `.\scripts\Test-AnalystStack.ps1`
-2. `.\Start-1CAnalyst.ps1 -InfoBasePath "C:\Users\aaposmetev\Documents\1C\DemoTrd" -User "Администратор" -Password "" -Problem "Почему заказ ТД00-000007 не отгружен полностью?"`
+2. `.\Start-1CAnalyst.ps1 -InfoBasePath "C:\Users\...\Documents\1C\DemoTrd" -User "Администратор" -Password "" -Problem "Почему заказ ТД00-000007 не отгружен полностью?"`
 3. В OpenCode agent `1c-analyst` выполняет `onec_check_connection` → `onec_query` по заказу и реализациям
 
 ## Безопасность
