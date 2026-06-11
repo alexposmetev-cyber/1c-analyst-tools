@@ -238,8 +238,8 @@ def _com_status_payload() -> dict[str, Any]:
             f"Регистрация comcntr.dll требует прав администратора Windows "
             f"(один раз на компьютере): {register_script} или заявка в IT. "
             "Пользователь без прав админа не сможет выполнить regsvr32 самостоятельно. "
-            "До регистрации COM агент работает в offline/research (ИТС, кейсы, без onec_query). "
-            "После регистрации IT: Restart MCP onec-data, затем onec_connect."
+            "До регистрации COM агент работает в offline/research (ИТС, кейсы, без onec-data_onec_query). "
+            "После регистрации IT: Restart MCP onec-data, затем onec-data_onec_connect."
         )
 
     return {
@@ -356,9 +356,9 @@ def _get_connection() -> dict[str, str]:
     connection = resolve_connection(ROOT, _memory_session)
     if not connection:
         raise RuntimeError(
-            "AGENT_ACTION (режим live): вызови onec_list_infobases, спроси базу и учётные данные, "
-            "затем onec_connect. Если доступа к базе нет — режим offline/research: кейсы, ИТС, форумы; "
-            "onec_query не вызывать. Не предлагай скрипты."
+            "AGENT_ACTION (режим live): вызови onec-data_onec_list_infobases, спроси базу и учётные данные, "
+            "затем onec-data_onec_connect. Если доступа к базе нет — режим offline/research: кейсы, ИТС, форумы; "
+            "onec-data_onec_query не вызывать. Не предлагай скрипты."
         )
     return connection
 
@@ -393,12 +393,12 @@ def _execute_powershell(args: list[str], timeout: int = 300) -> tuple[str, str, 
         com_status = _com_status_payload()
         if not com_status.get("readyForConnect"):
             com_hint = (
-                " Возможная причина: COM не готов — вызовите onec_com_status и выполните Register-1CCom.cmd."
+                " Возможная причина: COM не готов — вызовите onec-data_onec_com_status и выполните Register-1CCom.cmd."
             )
         raise RuntimeError(
             f"Таймаут PowerShell ({timeout} с).{com_hint} "
-            "onec_connect без platform_version и без refresh_metadata=true; "
-            "при успешном connect вызовите onec_refresh_metadata отдельно "
+            "onec-data_onec_connect без platform_version и без refresh_metadata=true; "
+            "при успешном connect вызовите onec-data_onec_refresh_metadata отдельно "
             "(может занять несколько минут). Первый COM-connect иногда 30–60 с. "
             f"Команда: {' '.join(str(part) for part in args[:6])}..."
         ) from exc
@@ -651,7 +651,7 @@ def onec_ping() -> str:
             "server": "onec-data",
             "root": str(ROOT),
             "powershell": _resolve_powershell_exe(),
-            "hint": "Если ping ok, а connect пропал — onec_com_status, затем Restart MCP.",
+            "hint": "Если ping ok, а connect пропал — onec-data_onec_com_status, затем Restart MCP.",
         },
         ensure_ascii=False,
     )
@@ -780,13 +780,13 @@ def onec_confirm_credentials(
     password: str = "",
     password_acknowledged: bool = False,
 ) -> str:
-    """Фиксирует ответы из question: база, пользователь 1С, пароль. Перед onec_connect."""
+    """Фиксирует ответы из question: база, пользователь 1С, пароль. Перед onec-data_onec_connect."""
     user = user.strip()
     info_base = (info_base_name or info_base_path).strip()
     if not user:
         return plain_user_reply("Укажите пользователя 1С (не логин Windows).")
     if not info_base:
-        return plain_user_reply("Укажите базу из onec_list_infobases.")
+        return plain_user_reply("Укажите базу из onec-data_onec_list_infobases.")
 
     password_block = credentials_password_gate_message(
         ROOT,
@@ -804,7 +804,7 @@ def onec_confirm_credentials(
     password_note = "пароль не указан (пустой)" if not password.strip() else "пароль принят"
     return plain_user_reply(
         f"Учётные данные записаны: база «{info_base}», пользователь «{user}», {password_note}. "
-        "Теперь вызовите onec_connect с теми же user, info_base_name и password."
+        "Теперь вызовите onec-data_onec_connect с теми же user, info_base_name и password."
     )
 
 
@@ -822,14 +822,14 @@ def onec_connect(
 ) -> str:
     """Подключение к ИБ 1С (read-only). Обязателен user. Ответ — русский текст, не JSON.
 
-    Сначала onec_confirm_credentials после question (база, пользователь 1С, пароль).
+    Сначала onec-data_onec_confirm_credentials после question (база, пользователь 1С, пароль).
 
-    Предпочтительно: info_base_name — имя или номер (1, 2, …) из onec_list_infobases.
+    Предпочтительно: info_base_name — имя или номер (1, 2, …) из onec-data_onec_list_infobases.
     Альтернатива: info_base_path — только каталог (без префикса File=).
 
     По умолчанию только проверка COM (быстро). refresh_metadata=true — полная выгрузка
     метаданных в том же вызове (долго, риск таймаута клиента). Иначе после connect:
-    onec_refresh_metadata.
+    onec-data_onec_refresh_metadata.
 
     platform_version не передавайте — подбор по версии ИБ и 1cestart.cfg.
     """
@@ -869,7 +869,7 @@ def onec_connect(
     confirmed_user = str(workflow.get("credentialsUser") or "").strip()
     if confirmed_user.lower() != user.strip().lower():
         return plain_user_reply(
-            f"Пользователь «{user}» не совпадает с принятым в onec_confirm_credentials "
+            f"Пользователь «{user}» не совпадает с принятым в onec-data_onec_confirm_credentials "
             f"(«{confirmed_user}»). Сначала confirm_credentials с ответами пользователя."
         )
 
@@ -893,7 +893,7 @@ def onec_connect(
         )
         if not base_match:
             return plain_user_reply(
-                f"База «{base_candidate}» не совпадает с onec_confirm_credentials "
+                f"База «{base_candidate}» не совпадает с onec-data_onec_confirm_credentials "
                 f"(«{confirmed_base}»)."
             )
 
@@ -922,7 +922,7 @@ def onec_connect(
         }
     else:
         raise ValueError(
-            "Укажите цель подключения: info_base_name (имя или номер из onec_list_infobases), "
+            "Укажите цель подключения: info_base_name (имя или номер из onec-data_onec_list_infobases), "
             "info_base_path (каталог файловой базы без File=) или server + ref. "
             "Строку File=\"...\" из реестра можно передать в connection_string, не в info_base_path."
         )
@@ -1025,7 +1025,7 @@ def onec_connect(
             metadata_manifest = cached
             reused_cache = True
         payload["metadata_next_step"] = (
-            "AGENT_ACTION: connect успешен. Вызовите onec_refresh_metadata для кэша метаданных "
+            "AGENT_ACTION: connect успешен. Вызовите onec-data_onec_refresh_metadata для кэша метаданных "
             "(отдельный долгий вызов; не объединяйте с connect)."
         )
 
@@ -1123,7 +1123,7 @@ def onec_search_cases(query: str, limit: int = 5) -> str:
     """Ищет похожие кейсы расследований.
 
     Ответ для агента: поле userSummaries — показывать пользователю; matches — только внутренне.
-    Вызывать после onec_declare_symptom, не вместо приветствия и question.
+    Вызывать после onec-data_onec_declare_symptom, не вместо приветствия и question.
     """
     blocked = _gate_investigation_reply()
     if blocked:
@@ -1315,7 +1315,7 @@ def onec_read_module(
 
     full_name — полное имя объекта, например Документ.ЗаказКлиента или ОбщийМодуль.ПроведениеДокументов.
     module_part: manager (модуль менеджера), object (модуль объекта), module (общий модуль).
-    Требует успешного onec_connect. Может занять 1–3 минуты при первой выгрузке объекта.
+    Требует успешного onec-data_onec_connect. Может занять 1–3 минуты при первой выгрузке объекта.
     """
     full_name = full_name.strip()
     module_part = module_part.strip().lower()
@@ -1347,8 +1347,8 @@ def onec_read_module(
     payload = _run_powershell_json(args, timeout=600)
     payload["note"] = (
         "COM не читает BSL напрямую — модуль выгружается конфигуратором. "
-        "Предпочтительно: onec_config_sources_register (готовые XML) "
-        "или onec_config_read_module из зарегистрированных исходников."
+        "Предпочтительно: onec-data_onec_config_sources_register (готовые XML) "
+        "или onec-data_onec_config_read_module из зарегистрированных исходников."
     )
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -1388,7 +1388,7 @@ def onec_config_sources_register(
     return json.dumps(
         {
             "status": "ok",
-            "message": "Источник XML зарегистрирован. Для чтения кода: onec_config_read_module / onec_config_search_code.",
+            "message": "Источник XML зарегистрирован. Для чтения кода: onec-data_onec_config_read_module / onec-data_onec_config_search_code.",
             "source": source,
         },
         ensure_ascii=False,
@@ -1414,7 +1414,7 @@ def onec_dump_config(
     """Выгружает конфигурацию из подключённой ИБ в XML-файлы через конфигуратор (DumpConfigToFiles).
 
     mode: partial (список objects обязателен) или full (вся конфигурация, долго).
-    Требует onec_connect. После выгрузки каталог регистрируется автоматически.
+    Требует onec-data_onec_connect. После выгрузки каталог регистрируется автоматически.
     """
     mode_normalized = mode.strip().lower()
     if mode_normalized not in {"partial", "full"}:
@@ -1459,7 +1459,7 @@ def onec_dump_config(
         )
         payload["registered_source"] = source
         payload["next_step"] = (
-            "AGENT_ACTION: onec_config_read_module / onec_config_search_code — анализ BSL; "
+            "AGENT_ACTION: onec-data_onec_config_read_module / onec-data_onec_config_search_code — анализ BSL; "
             "для ЛТ обновите §4 фактами из кода."
         )
     return json.dumps(payload, ensure_ascii=False, indent=2)
@@ -1592,7 +1592,7 @@ def onec_web_search_forums(
 
 @mcp.tool()
 def onec_its_search(query: str, database: str = "v8std", limit: int = 5) -> str:
-    """Поиск в документации 1С:ИТС. Без учётных данных вернёт AGENT_ACTION — спроси логин/пароль и onec_its_configure."""
+    """Поиск в документации 1С:ИТС. Без учётных данных вернёт AGENT_ACTION — спроси логин/пароль и onec-data_onec_its_configure."""
     blocked = _gate_investigation_reply()
     if blocked:
         return blocked
@@ -1624,7 +1624,7 @@ def onec_its_fetch(url: str, max_chars: int = 12000) -> str:
 
 @mcp.tool()
 def onec_obsidian_status() -> str:
-    """Статус vault .Obsidian: путь, папки ИБ, число кейсов. Папка базы — из onec_connect или database_name."""
+    """Статус vault .Obsidian: путь, папки ИБ, число кейсов. Папка базы — из onec-data_onec_connect или database_name."""
     session = _current_session()
     payload = vault_status(ROOT, session)
     if session:
@@ -1778,7 +1778,7 @@ def onec_obsidian_save_session(
             symptom=summary[:240],
         )
     payload["agent_action"] = (
-        "AGENT_ACTION: дополняйте эту заметку через onec_obsidian_append_session "
+        "AGENT_ACTION: дополняйте эту заметку через onec-data_onec_obsidian_append_session "
         f"(session_note_path={payload.get('relative_path', '')})."
     )
     return json.dumps(payload, ensure_ascii=False, indent=2)

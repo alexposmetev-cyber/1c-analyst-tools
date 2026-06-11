@@ -260,8 +260,8 @@ def sources_status(root: Path) -> dict[str, Any]:
         "sources": [],
         "agent_action": (
             "AGENT_ACTION: сначала спросите пользователя — есть ли уже выгруженная конфигурация в файлах "
-            "(Git, каталог разработки, XML). Если да — onec_config_sources_register(path=...). "
-            "Если нет — onec_dump_config (нужен onec_connect) или пользователь выгружает вручную."
+            "(Git, каталог разработки, XML). Если да — onec-data_onec_config_sources_register(path=...). "
+            "Если нет — onec-data_onec_dump_config (нужен onec-data_onec_connect) или пользователь выгружает вручную."
         ),
     }
 
@@ -305,8 +305,8 @@ def read_module_from_sources(
     source = resolve_active_source(root, source_id)
     if not source:
         raise RuntimeError(
-            "Источник XML не зарегистрирован. onec_config_sources_register(path=...) "
-            "или onec_dump_config после connect."
+            "Источник XML не зарегистрирован. onec-data_onec_config_sources_register(path=...) "
+            "или onec-data_onec_dump_config после connect."
         )
 
     sources_root = Path(str(source["path"]))
@@ -359,7 +359,7 @@ def search_code_in_sources(
     source = resolve_active_source(root, source_id)
     if not source:
         raise RuntimeError(
-            "Источник XML не зарегистрирован. Сначала onec_config_sources_register или onec_dump_config."
+            "Источник XML не зарегистрирован. Сначала onec-data_onec_config_sources_register или onec-data_onec_dump_config."
         )
 
     sources_root = Path(str(source["path"]))

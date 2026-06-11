@@ -15,26 +15,26 @@ description: ИТС и форумы — режимы research и offline, общ
 
 База 1С для веб-поиска **не нужна**. Учётные данные ИТС — отдельно от логина базы.
 
-## Доступ к ИТС — как у onec_connect
+## Доступ к ИТС — как у onec-data_onec_connect
 
-**Перед первым `onec_its_search` / `onec_its_fetch`:**
+**Перед первым `onec-data_onec_its_search` / `onec-data_onec_its_fetch`:**
 
-1. `onec_web_research_status` — если `its_credentials_configured: false` или есть `agent_action`:
+1. `onec-data_onec_web_research_status` — если `its_credentials_configured: false` или есть `agent_action`:
 2. **Спроси у пользователя** через `question`: логин и пароль портала **1С:ИТС** (не путать с логином базы 1С).
-3. `onec_its_configure(user=..., password=...)` — проверит авторизацию и сохранит в сессию.
-4. Только после `status: ok` — `onec_its_search` / `onec_its_fetch`.
+3. `onec-data_onec_its_configure(user=..., password=...)` — проверит авторизацию и сохранит в сессию.
+4. Только после `status: ok` — `onec-data_onec_its_search` / `onec-data_onec_its_fetch`.
 
-**ЗАПРЕЩЕНО:** просить пользователя вручную создавать `.onec-web.json` или задавать env — только `question` → `onec_its_configure`.
+**ЗАПРЕЩЕНО:** просить пользователя вручную создавать `.onec-web.json` или задавать env — только `question` → `onec-data_onec_its_configure`.
 
-При смене учётной записи ИТС: `onec_its_disconnect` → спросить заново → `onec_its_configure`.
+При смене учётной записи ИТС: `onec-data_onec_its_disconnect` → спросить заново → `onec-data_onec_its_configure`.
 
 Не повторяй пароль ИТС в ответах пользователю.
 
 ## Когда искать
 
-- **Методология**, стандарт разработки, типовой механизм платформы → `onec_its_search` / `onec_its_fetch`.
-- **Идеи** по симптому, ошибке → `onec_web_search_forums` (учётные данные не нужны).
-- Перед поиском на форумах укажи `configuration_name` и `configuration_version` — из `onec_metadata_status` (live) или **спроси у пользователя** (offline/research).
+- **Методология**, стандарт разработки, типовой механизм платформы → `onec-data_onec_its_search` / `onec-data_onec_its_fetch`.
+- **Идеи** по симптому, ошибке → `onec-data_onec_web_search_forums` (учётные данные не нужны).
+- Перед поиском на форумах укажи `configuration_name` и `configuration_version` — из `onec-data_onec_metadata_status` (live) или **спроси у пользователя** (offline/research).
 
 ## Базы ИТС (параметр `database`)
 
@@ -67,9 +67,9 @@ description: ИТС и форумы — режимы research и offline, общ
 
 | Tool | Назначение |
 |------|------------|
-| `onec_web_research_status` | Настроен ли ИТС; `agent_action` если нет |
-| `onec_its_configure` | Логин/пароль ИТС от пользователя |
-| `onec_its_disconnect` | Сброс учётных данных ИТС |
-| `onec_its_search` | Поиск в базе ИТС |
-| `onec_its_fetch` | Текст статьи по URL |
-| `onec_web_search_forums` | Поиск по форумам |
+| `onec-data_onec_web_research_status` | Настроен ли ИТС; `agent_action` если нет |
+| `onec-data_onec_its_configure` | Логин/пароль ИТС от пользователя |
+| `onec-data_onec_its_disconnect` | Сброс учётных данных ИТС |
+| `onec-data_onec_its_search` | Поиск в базе ИТС |
+| `onec-data_onec_its_fetch` | Текст статьи по URL |
+| `onec-data_onec_web_search_forums` | Поиск по форумам |

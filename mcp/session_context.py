@@ -214,7 +214,7 @@ def evaluate_configuration_mismatch(
         result["reason"] = (
             f"В первом сообщении упомянута конфигурация ({user_label}), "
             f"а сохранённая сессия относится к другой ({session_label}). "
-            "Сессия сброшена — нужен новый onec_connect."
+            "Сессия сброшена — нужен новый onec-data_onec_connect."
         )
 
     return result
@@ -251,7 +251,7 @@ def reset_session_for_new_chat(
     clear_verified: Any,
     clear_session_file: Any,
 ) -> dict[str, Any]:
-    """Сбрасывает сохранённое подключение при старте новой чат-сессии (onec_welcome)."""
+    """Сбрасывает сохранённое подключение при старте новой чат-сессии (onec-data_onec_welcome)."""
     had_file = load_session(root) is not None
     connection = resolve_connection(root, memory_session)
     previous_target = ""
@@ -274,12 +274,12 @@ def reset_session_for_new_chat(
     elif previous_target:
         reason = (
             f"Новая чат-сессия: сброшено сохранённое подключение к «{previous_target}». "
-            "Выберите базу, пользователя и пароль заново → onec_connect."
+            "Выберите базу, пользователя и пароль заново → onec-data_onec_connect."
         )
     else:
         reason = (
             "Новая чат-сессия: подключение не активно. "
-            "Для live-режима: onec_list_infobases → выбор базы и учётных данных → onec_connect."
+            "Для live-режима: onec-data_onec_list_infobases → выбор базы и учётных данных → onec-data_onec_connect."
         )
 
     return {

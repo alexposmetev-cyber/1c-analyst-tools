@@ -32,8 +32,8 @@ TASK_TYPE_IDS = frozenset(
 
 MENU_BUTTON_MESSAGE = (
     "Это похоже на выбор кнопки в меню «Чем помочь?», а не описание задачи. "
-    "Вызовите onec_set_task_type после question, затем спросите пользователя: "
-    "точный текст ошибки, что делали, какой документ или операция — и только потом onec_declare_symptom."
+    "Вызовите onec-data_onec_set_task_type после question, затем спросите пользователя: "
+    "точный текст ошибки, что делали, какой документ или операция — и только потом onec-data_onec_declare_symptom."
 )
 
 AGENT_NARRATION_PREFIXES = (
@@ -64,7 +64,7 @@ AGENT_NARRATION_MARKERS = (
 )
 
 ASK_USER_VIA_QUESTION = (
-    "СТОП: не вызывайте onec_declare_symptom снова. "
+    "СТОП: не вызывайте onec-data_onec_declare_symptom снова. "
     "Один раз задайте вопрос пользователю через question: "
     "«Опишите ошибку — точный текст, документ, что делали». "
     "После ответа в чат — declare_symptom с текстом пользователя."
@@ -179,7 +179,7 @@ def credentials_password_gate_message(root: Path, *, password_acknowledged: bool
     return (
         "Пароль для входа в 1С ещё не подтверждён. Спросите через question: "
         "«Пароль пользователя 1С?» (можно пустой, если без пароля). "
-        "Затем onec_confirm_credentials(..., password=..., password_acknowledged=true)."
+        "Затем onec-data_onec_confirm_credentials(..., password=..., password_acknowledged=true)."
     )
 
 
@@ -238,7 +238,7 @@ def task_type_followup_message(root: Path) -> str:
             f"Тип задачи зафиксирован: {label or 'расследование ошибки'}.\n\n"
             "Следующий шаг — один вызов question: «Опишите ошибку: точный текст сообщения, "
             "документ, что делали».\n\n"
-            "Запрещено вызывать onec_declare_symptom, пока пользователь не ответил текстом в чат."
+            "Запрещено вызывать onec-data_onec_declare_symptom, пока пользователь не ответил текстом в чат."
         )
     if workflow.get("taskType") == "requirements":
         return (
@@ -248,11 +248,11 @@ def task_type_followup_message(root: Path) -> str:
     if workflow.get("taskType") == "continue":
         return (
             "Продолжаем с задачей из сообщения пользователя. "
-            "Если описание короткое — уточните детали, затем onec_declare_symptom."
+            "Если описание короткое — уточните детали, затем onec-data_onec_declare_symptom."
         )
     return (
         f"Тип задачи: {label or workflow.get('taskType', '')}. "
-        "Уточните запрос пользователя, затем onec_declare_symptom при необходимости."
+        "Уточните запрос пользователя, затем onec-data_onec_declare_symptom при необходимости."
     )
 
 
@@ -355,17 +355,17 @@ def credentials_gate_message(root: Path) -> str | None:
 
     if not workflow.get("welcomeDone"):
         return (
-            "Сначала вызовите onec_welcome и покажите меню question. "
+            "Сначала вызовите onec-data_onec_welcome и покажите меню question. "
             "Затем спросите базу, пользователя 1С и пароль."
         )
 
     return (
         "Перед подключением задайте пользователю вопрос через question:\n"
-        "1) какая база (из onec_list_infobases);\n"
+        "1) какая база (из onec-data_onec_list_infobases);\n"
         "2) пользователь 1С (не логин Windows);\n"
         "3) пароль (можно пустой, если пользователь так указал).\n\n"
-        "После ответа вызовите onec_confirm_credentials(user=..., info_base_name=..., password=...), "
-        "затем onec_connect с теми же параметрами."
+        "После ответа вызовите onec-data_onec_confirm_credentials(user=..., info_base_name=..., password=...), "
+        "затем onec-data_onec_connect с теми же параметрами."
     )
 
 
@@ -386,7 +386,7 @@ def symptom_gate_message(root: Path) -> str | None:
     return (
         prefix
         + "Спросите пользователя: «Опишите ошибку или задачу текстом» "
-        f"(точный текст ошибки, документ, операция) и вызовите onec_declare_symptom(symptom=...) — "
+        f"(точный текст ошибки, документ, операция) и вызовите onec-data_onec_declare_symptom(symptom=...) — "
         f"минимум {MIN_SYMPTOM_LENGTH} символов. "
         "Текст кнопки question (например «Ошибка в учёте») в declare_symptom передавать нельзя. "
         "Без этого нельзя искать в кейсах, ИТС и метаданных."
@@ -401,8 +401,8 @@ def live_gate_message(root: Path, *, connection_verified: bool) -> str | None:
     if not connection_verified:
         return (
             "Нет подтверждённого подключения к базе. "
-            "onec_list_infobases → question (база, пользователь, пароль) → "
-            "onec_confirm_credentials → onec_connect."
+            "onec-data_onec_list_infobases → question (база, пользователь, пароль) → "
+            "onec-data_onec_confirm_credentials → onec-data_onec_connect."
         )
 
     return None

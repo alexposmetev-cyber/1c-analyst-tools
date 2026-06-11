@@ -5,36 +5,36 @@ description: Пайплайн расследования live — метадан
 
 # Пайплайн расследования (режим live)
 
-Используй после успешного **`onec_connect`** и **`metadata.ready: true`**.  
+Используй после успешного **`onec-data_onec_connect`** и **`metadata.ready: true`**.  
 Режим работы — skill `1c-work-modes`. Подключение — `1c-connection`.
 
 ## Фаза 0 — подготовка
 
-**До этой фазы:** welcome → question → connect (`credentials_confirmed=true`) → пользователь описал задачу → **`onec_declare_symptom`**.
+**До этой фазы:** welcome → question → connect (`credentials_confirmed=true`) → пользователь описал задачу → **`onec-data_onec_declare_symptom`**.
 
-1. `onec_metadata_status` — при необходимости.
-2. `onec_search_cases` — только после `onec_declare_symptom`, запрос = зафиксированный симптом.
-3. `onec_metadata_search` — объекты, регистры, связанные с симптомом.
+1. `onec-data_onec_metadata_status` — при необходимости.
+2. `onec-data_onec_search_cases` — только после `onec-data_onec_declare_symptom`, запрос = зафиксированный симптом.
+3. `onec-data_onec_metadata_search` — объекты, регистры, связанные с симптомом.
 4. Сформулируй **поисковый запрос для ИТС** (конфигурация + версия + симптом + текст ошибки).
 
 ## Фаза 1 — ИТС (обязательно после метаданных)
 
-1. `onec_web_research_status` → при необходимости **question** (логин/пароль ИТС) → `onec_its_configure`.
-2. `onec_its_search` — 3–5 релевантных статей.
-3. `onec_its_fetch` — полный текст 1–2 лучших статей.
+1. `onec-data_onec_web_research_status` → при необходимости **question** (логин/пароль ИТС) → `onec-data_onec_its_configure`.
+2. `onec-data_onec_its_search` — 3–5 релевантных статей.
+3. `onec-data_onec_its_fetch` — полный текст 1–2 лучших статей.
 
 ### Если в ИТС **ничего** полезного не найдено
 
 - Сообщи пользователю явно.
-- **Предложи** поиск в интернете: `onec_web_search_forums` (только после согласия или по просьбе).
+- **Предложи** поиск в интернете: `onec-data_onec_web_search_forums` (только после согласия или по просьбе).
 - Помечай результаты форумов как гипотезы с риском неактуальности для версии.
 
 ### Если в ИТС **нашли** релевантное
 
 1. Кратко перескажи выводы ИТС (со ссылкой на источник / заголовок статьи).
 2. Сформулируй **гипотезы** с уровнем уверенности (высокая / средняя / низкая).
-3. **Не углубляйся** в `onec_query` без запроса пользователя.
-4. Выдай **чек-лист самопроверки в базе** — что открыть, какие реквизиты, регистры, типовые отчёты; конкретные имена объектов из `onec_metadata_object`.
+3. **Не углубляйся** в `onec-data_onec_query` без запроса пользователя.
+4. Выдай **чек-лист самопроверки в базе** — что открыть, какие реквизиты, регистры, типовые отчёты; конкретные имена объектов из `onec-data_onec_metadata_object`.
 5. Заверши вопросом: «Проверьте в ИБ по чек-листу. Если не помогло — напишите, перейдём к разбору кода конфигурации».
 
 ## Фаза 2 — эскалация: код конфигурации
@@ -53,14 +53,14 @@ Skill **`1c-config-sources`**. COM **не читает BSL**.
 
 | Ситуация | Действие |
 |----------|----------|
-| Путь есть | `onec_config_sources_register` |
-| Нет | `onec_dump_config(mode=partial, objects=...)` после connect или предложить пользователю выгрузку |
+| Путь есть | `onec-data_onec_config_sources_register` |
+| Нет | `onec-data_onec_dump_config(mode=partial, objects=...)` после connect или предложить пользователю выгрузку |
 
 ### Шаги анализа
 
 1. По метаданным — 1–3 объекта.
-2. **`onec_config_search_code`** → **`onec_config_read_module`** (предпочтительно).
-3. Запасной путь: `onec_read_module` (конфигуратор, медленнее).
+2. **`onec-data_onec_config_search_code`** → **`onec-data_onec_config_read_module`** (предпочтительно).
+3. Запасной путь: `onec-data_onec_read_module` (конфигуратор, медленнее).
 4. Гипотезы по коду + чек-лист для ИБ.
 
 ### Ограничения
@@ -71,16 +71,16 @@ Skill **`1c-config-sources`**. COM **не читает BSL**.
 
 ## Фаза 3 — запросы к данным (по согласию)
 
-`onec_query` — **только** если пользователь просит проверить факты в ИБ или после согласия на live-проверку.  
+`onec-data_onec_query` — **только** если пользователь просит проверить факты в ИБ или после согласия на live-проверку.  
 Иначе ограничься чек-листом для самостоятельной проверки.
 
 ## Сохранение контекста (skill `1c-cases`)
 
 **При приближении к решению** — не ждите финала:
 
-1. `onec_save_case(status=draft)` с полным контекстом (методы, гипотезы, источники).
-2. `onec_obsidian_save_session` — ход диалога.
-3. При доп. вопросах пользователя — `onec_obsidian_append_session` + `onec_save_case(case_id, additional_notes)`.
+1. `onec-data_onec_save_case(status=draft)` с полным контекстом (методы, гипотезы, источники).
+2. `onec-data_onec_obsidian_save_session` — ход диалога.
+3. При доп. вопросах пользователя — `onec-data_onec_obsidian_append_session` + `onec-data_onec_save_case(case_id, additional_notes)`.
 4. При подтверждённом решении — `status=final`.
 
 ## Итоговая структура ответа

@@ -46,63 +46,63 @@ def _capabilities() -> list[dict[str, str]]:
         {
             "group": "Подключение и данные",
             "items": [
-                "onec_list_infobases — список баз из реестра Windows",
-                "onec_connect — подключение к ИБ (read-only)",
-                "onec_connection_status / onec_check_connection — статус сессии",
-                "onec_disconnect — сброс подключения",
-                "onec_bridge_status — Bridge Agent (оркестратор + долгий COM для onec_query)",
-                "onec_query — запрос ВЫБРАТЬ/SELECT (через Bridge или COM, по согласию)",
+                "onec-data_onec_list_infobases — список баз из реестра Windows",
+                "onec-data_onec_connect — подключение к ИБ (read-only)",
+                "onec-data_onec_connection_status / onec-data_onec_check_connection — статус сессии",
+                "onec-data_onec_disconnect — сброс подключения",
+                "onec-data_onec_bridge_status — Bridge Agent (оркестратор + долгий COM для onec-data_onec_query)",
+                "onec-data_onec_query — запрос ВЫБРАТЬ/SELECT (через Bridge или COM, по согласию)",
             ],
         },
         {
             "group": "Метаданные конфигурации",
             "items": [
-                "onec_metadata_status — готовность кэша",
-                "onec_metadata_search — поиск объектов по имени/синониму",
-                "onec_metadata_object — карточка объекта (реквизиты, ТЧ)",
-                "onec_refresh_metadata — обновить кэш из ИБ",
+                "onec-data_onec_metadata_status — готовность кэша",
+                "onec-data_onec_metadata_search — поиск объектов по имени/синониму",
+                "onec-data_onec_metadata_object — карточка объекта (реквизиты, ТЧ)",
+                "onec-data_onec_refresh_metadata — обновить кэш из ИБ",
             ],
         },
         {
             "group": "Документация и интернет",
             "items": [
-                "onec_web_research_status — настройка ИТС",
-                "onec_its_configure — логин/пароль портала ИТС",
-                "onec_its_search / onec_its_fetch — поиск в 1С:ИТС",
-                "onec_web_search_forums — форумы (гипотезы, версия конфигурации)",
+                "onec-data_onec_web_research_status — настройка ИТС",
+                "onec-data_onec_its_configure — логин/пароль портала ИТС",
+                "onec-data_onec_its_search / onec-data_onec_its_fetch — поиск в 1С:ИТС",
+                "onec-data_onec_web_search_forums — форумы (гипотезы, версия конфигурации)",
             ],
         },
         {
             "group": "Код и расследование",
             "items": [
-                "onec_config_sources_status / onec_config_sources_register — XML-исходники (спросить путь у пользователя)",
-                "onec_dump_config — выгрузка конфигурации в файлы (partial/full, нужен connect)",
-                "onec_config_read_module / onec_config_search_code — анализ BSL из XML",
-                "onec_read_module — запасной: модуль через конфигуратор (COM не читает код)",
-                "onec_set_task_type — выбор в question (investigation, requirements, …); не симптом",
-                "onec_declare_symptom — текстовое описание задачи от пользователя (не label кнопки)",
-                "onec_search_cases / onec_get_case — библиотека кейсов",
-                "onec_save_case — draft при приближении к решению, final в конце; дополнять по case_id",
-                "onec_investigation_status — активный case_id и пути заметок",
+                "onec-data_onec_config_sources_status / onec-data_onec_config_sources_register — XML-исходники (спросить путь у пользователя)",
+                "onec-data_onec_dump_config — выгрузка конфигурации в файлы (partial/full, нужен connect)",
+                "onec-data_onec_config_read_module / onec-data_onec_config_search_code — анализ BSL из XML",
+                "onec-data_onec_read_module — запасной: модуль через конфигуратор (COM не читает код)",
+                "onec-data_onec_set_task_type — выбор в question (investigation, requirements, …); не симптом",
+                "onec-data_onec_declare_symptom — текстовое описание задачи от пользователя (не label кнопки)",
+                "onec-data_onec_search_cases / onec-data_onec_get_case — библиотека кейсов",
+                "onec-data_onec_save_case — draft при приближении к решению, final в конце; дополнять по case_id",
+                "onec-data_onec_investigation_status — активный case_id и пути заметок",
             ],
         },
         {
             "group": "Obsidian — архив аналитика",
             "items": [
-                "onec_obsidian_status — путь vault и проекты",
-                "onec_obsidian_set_context — имя папки ИБ (если нет connect)",
-                "onec_obsidian_save_requirements — лист требований",
-                "onec_obsidian_save_session — заметка сессии (вместе с draft-кейсом)",
-                "onec_obsidian_append_session — дополнение заметки при уточнениях",
-                "onec_obsidian_prepare_requirements — контекст перед ЛТ (кейсы, справочники)",
-                "onec_bitmedic_guidance — поиск на info.bitmedic.ru (БИТ.Медицина)",
+                "onec-data_onec_obsidian_status — путь vault и проекты",
+                "onec-data_onec_obsidian_set_context — имя папки ИБ (если нет connect)",
+                "onec-data_onec_obsidian_save_requirements — лист требований",
+                "onec-data_onec_obsidian_save_session — заметка сессии (вместе с draft-кейсом)",
+                "onec-data_onec_obsidian_append_session — дополнение заметки при уточнениях",
+                "onec-data_onec_obsidian_prepare_requirements — контекст перед ЛТ (кейсы, справочники)",
+                "onec-data_onec_bitmedic_guidance — поиск на info.bitmedic.ru (БИТ.Медицина)",
             ],
         },
         {
             "group": "Лист требований",
             "items": [
                 "skill 1c-requirements-sheet — черновик ЛТ из описания или транскрипта",
-                "фаза A: ЛТ в чат (§2.1 ценность, §4 подробно, §7 трудочасы) + onec_obsidian_save_requirements (draft)",
+                "фаза A: ЛТ в чат (§2.1 ценность, §4 подробно, §7 трудочасы) + onec-data_onec_obsidian_save_requirements (draft)",
                 "фаза B: после connect — уточнить §4 и §7, ЛТ final в Obsidian",
             ],
         },
@@ -141,8 +141,8 @@ def build_welcome_payload(
         connection_block["configuration_version"] = meta.get("version", "")
 
     connection_block["hint"] = (
-        "Подключение не активно. Для live-режима: onec_list_infobases → "
-        "спросите базу, пользователя и пароль → onec_connect. "
+        "Подключение не активно. Для live-режима: onec-data_onec_list_infobases → "
+        "спросите базу, пользователя и пароль → onec-data_onec_connect. "
         "Или предложите offline/research без ИБ."
     )
 
@@ -169,7 +169,7 @@ def build_welcome_payload(
         connection_block["connected"] = False
         connection_block["hint"] = (
             "Сохранённое подключение сброшено (новая чат-сессия). "
-            "onec_list_infobases → спросите базу, пользователя и пароль → onec_connect."
+            "onec-data_onec_list_infobases → спросите базу, пользователя и пароль → onec-data_onec_connect."
         )
         if reset_block.get("previous_target"):
             connection_block["previous_target"] = reset_block["previous_target"]
@@ -190,13 +190,13 @@ def build_welcome_payload(
         "agent_action": (
             "AGENT_ACTION: 1) Покажите пользователю только formatted_user (коротко, без MCP). "
             "2) Сразу в том же ответе вызовите question с title/prompt/options из поля question. "
-            "3) Не выводите formatted, JSON инструментов, кейсы, onec_save_case в чат. "
-            "4) До question запрещены onec_search_cases, onec_connect, onec_save_case. "
+            "3) Не выводите formatted, JSON инструментов, кейсы, onec-data_onec_save_case в чат. "
+            "4) До question запрещены onec-data_onec_search_cases, onec-data_onec_connect, onec-data_onec_save_case. "
             "5) После выбора — уточните задачу; при live — база."
         ),
         "first_step": (
             "Дождаться выбора в question. Затем спросить суть задачи своими словами. "
-            "onec_search_cases — только после описания симптома пользователем."
+            "onec-data_onec_search_cases — только после описания симптома пользователем."
         ),
     }
 
@@ -268,7 +268,7 @@ def format_welcome_text(payload: dict[str, Any]) -> str:
                 "",
                 "## Сброс сессии",
                 f"- {reset.get('reason', 'Новая чат-сессия: сохранённое подключение сброшено.')}",
-                "- Дальше: onec_list_infobases → спросить базу, пользователя, пароль → onec_connect.",
+                "- Дальше: onec-data_onec_list_infobases → спросить базу, пользователя, пароль → onec-data_onec_connect.",
             ]
         )
 

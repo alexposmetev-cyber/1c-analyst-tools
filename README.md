@@ -42,10 +42,10 @@ cd 1c-analyst-tools
                 ↓
          режим: live | offline | research  (skill 1c-work-modes)
                 ↓
-    live:  onec_connect → метаданные → ИТС → (код из XML-исходников) → onec_query по согласию
+    live:  onec-data_onec_connect → метаданные → ИТС → (код из XML-исходников) → onec-data_onec_query по согласию
     offline/research: кейсы, ИТС, форумы (без подключения к ИБ)
                 ↓
-    Obsidian vault: Cases / Requirements / Sessions (MCP onec_obsidian_*)
+    Obsidian vault: Cases / Requirements / Sessions (MCP onec-data_onec_obsidian_*)
 ```
 
 ## Obsidian
@@ -54,11 +54,11 @@ cd 1c-analyst-tools
 
 | Папка | MCP |
 |-------|-----|
-| `Cases/` | `onec_save_case` (draft/final, дополнение по `case_id`) |
-| `Requirements/` | `onec_obsidian_save_requirements` |
-| `Sessions/` | `onec_obsidian_save_session` + `onec_obsidian_append_session` |
+| `Cases/` | `onec-data_onec_save_case` (draft/final, дополнение по `case_id`) |
+| `Requirements/` | `onec-data_onec_obsidian_save_requirements` |
+| `Sessions/` | `onec-data_onec_obsidian_save_session` + `onec-data_onec_obsidian_append_session` |
 
-Папка базы: из `onec_connect` или `database_name`. Подпапка `Справочники/` — справка по конфигурации для ЛТ.
+Папка базы: из `onec-data_onec_connect` или `database_name`. Подпапка `Справочники/` — справка по конфигурации для ЛТ.
 
 Подключение: **не** передавать `platform_version` — авто по версии ИБ и `1cestart.cfg`; при ошибке COM — `Register-1CCom.cmd`.
 
@@ -139,7 +139,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "d:\...\1c-analyst-tools
 
 | Ситуация | Что делать |
 |----------|------------|
-| COM уже зарегистрирован (при установке 1С IT) | Ничего — `onec_com_status` → `readyForConnect=true` |
+| COM уже зарегистрирован (при установке 1С IT) | Ничего — `onec-data_onec_com_status` → `readyForConnect=true` |
 | COM не зарегистрирован | Заявка в IT: `Register-1CCom.cmd` или `regsvr32` на `comcntr.dll` |
 | Нельзя ждать IT | Агент в режиме **offline/research**: ИТС, форумы, кейсы, Obsidian |
 
@@ -182,7 +182,7 @@ C:\Windows\System32\regsvr32.exe "C:\Program Files\1cv8\8.3.27.1964\bin\comcntr.
 .\scripts\Setup-Mcp.ps1
 ```
 
-Учётные данные **1С:ИТС** — агент запрашивает сам через `question` и сохраняет через `onec_its_configure` (как `onec_connect` для базы). Файл `.onec-web.json` создаётся автоматически; вручную настраивать не нужно.
+Учётные данные **1С:ИТС** — агент запрашивает сам через `question` и сохраняет через `onec-data_onec_its_configure` (как `onec-data_onec_connect` для базы). Файл `.onec-web.json` создаётся автоматически; вручную настраивать не нужно.
 
 Опционально: env `ONEC_ITS_USER`, `ONEC_ITS_PASSWORD` или заранее заполненный `.onec-web.json` (см. example).
 
@@ -201,10 +201,10 @@ C:\Windows\System32\regsvr32.exe "C:\Program Files\1cv8\8.3.27.1964\bin\comcntr.
 #### MCP пропал или connect обрывается по таймауту
 
 1. **Settings → MCP → onec-data → Restart** (или Reload Window).
-2. Проверка: `onec_ping` (без COM), затем **`onec_com_status`** (COM V83/V85 и `1cestart.cfg`).
+2. Проверка: `onec-data_onec_ping` (без COM), затем **`onec-data_onec_com_status`** (COM V83/V85 и `1cestart.cfg`).
 3. Локально: `scripts\Diagnose-OneCDataMcp.ps1` или `scripts\Diagnose-OneCDataMcp.cmd`
-4. **Connect:** `onec_connect` **без** `platform_version` и **без** `refresh_metadata=true` (по умолчанию).
-5. Затем отдельно: `onec_refresh_metadata` (может занять 5–15 мин на первой базе 8.5).
+4. **Connect:** `onec-data_onec_connect` **без** `platform_version` и **без** `refresh_metadata=true` (по умолчанию).
+5. Затем отдельно: `onec-data_onec_refresh_metadata` (может занять 5–15 мин на первой базе 8.5).
 6. **COM не зарегистрирован:** `Register-1CCom.cmd` (для баз 8.5 нужен **V85.COMConnector**). Подтвердите UAC. **Открывать 1С:Предприятие заранее не нужно** — достаточно COM.
 7. Connect с **`info_base_path`**, не с «битым» именем из ibases.v8i
 8. Первый COM-connect может занять **30–60 с** — это нормально, не объединяйте с выгрузкой метаданных.
@@ -251,7 +251,7 @@ cd /d "d:\...\Cursor\1c-analyst-tools"
 
 Скрипт: Bridge (если настроен) → прокси 1bit AI → **`opencode web`** (браузер, не консольный TUI). Используется `bin\opencode.exe` (1.16+).
 
-При наличии `bridge/agent/bridge-agent.json` автоматически поднимается Bridge Agent для стабильного `onec_query`.
+При наличии `bridge/agent/bridge-agent.json` автоматически поднимается Bridge Agent для стабильного `onec-data_onec_query`.
 
 3. Агент **1c-analyst** выбран по умолчанию. Опишите проблему в чате.
 4. Агент определит режим (**live** / **offline** / **research**) и при необходимости запросит базу или доступ к ИТС.
@@ -279,7 +279,7 @@ Start-1CAnalyst.cmd
 | [`Install.cmd`](Install.cmd) | Установка стека одной командой (winget + MCP + OpenCode) |
 | [`scripts/Install-1CAnalystStack.ps1`](scripts/Install-1CAnalystStack.ps1) | Логика установщика |
 | [`Start-1CAnalyst.ps1`](Start-1CAnalyst.ps1) | Launcher: credentials + OpenCode |
-| [`mcp/server.py`](mcp/server.py) | MCP: `onec_connect`, `onec_query`, метаданные, … |
+| [`mcp/server.py`](mcp/server.py) | MCP: `onec-data_onec_connect`, `onec-data_onec_query`, метаданные, … |
 | [`Lib/1CMetadataExport.ps1`](Lib/1CMetadataExport.ps1) | COM-выгрузка метаданных в `metadata/cache/` |
 | [`Lib/1CConfigDump.ps1`](Lib/1CConfigDump.ps1) | Выгрузка конфигурации в XML (конфигуратор) |
 | [`scripts/Dump-1CConfigToFiles.ps1`](scripts/Dump-1CConfigToFiles.ps1) | CLI: DumpConfigToFiles для анализа BSL |
@@ -291,39 +291,41 @@ Start-1CAnalyst.cmd
 
 ## MCP-инструменты
 
+Сервер MCP: **`onec-data`**. В OpenCode и Cursor вызывайте **`onec-data_<имя>`** (ниже в таблице — полные имена).
+
 | Tool | Описание |
 |------|----------|
-| `onec_welcome` | Приветствие: `formatted_user` + меню `question` (без MCP в чате); сброс подключения |
-| `onec_connect` | Подключение к ИБ + **auto metadata** (COM → `metadata/cache/`) |
-| `onec_check_connection` | Проверка подключения |
-| `onec_list_infobases` | Список баз из ibases.v8i |
-| `onec_metadata_status` | Статус кэша метаданных |
-| `onec_metadata_search` | Поиск объектов по имени/синониму |
-| `onec_metadata_object` | Карточка объекта (реквизиты, ТЧ, измерения) |
-| `onec_refresh_metadata` | Принудительное обновление кэша |
-| `onec_query` | Read-only запрос, JSON (max 5000 строк) |
-| `onec_config_sources_register` | Регистрация каталога XML-исходников (спросить путь у пользователя) |
-| `onec_dump_config` | Выгрузка конфигурации в файлы (partial/full, нужен connect) |
-| `onec_config_read_module` | Чтение BSL из зарегистрированных XML |
-| `onec_config_search_code` | Поиск по BSL в XML-исходниках |
-| `onec_read_module` | Запасной: модуль через конфигуратор (COM не читает код) |
-| `onec_web_research_status` | Статус ИТС; `agent_action` если нужен логин |
-| `onec_its_configure` | Логин/пароль ИТС от пользователя + проверка |
-| `onec_its_disconnect` | Сброс учётных данных ИТС |
-| `onec_its_search` | Поиск в документации 1С:ИТС |
-| `onec_its_fetch` | Загрузка текста статьи ИТС |
-| `onec_web_search_forums` | Поиск по форумам (Infostart, Mista, …) |
-| `onec_search_cases` | Поиск кейсов (JSON + Obsidian) |
-| `onec_get_case` | Кейс по id |
-| `onec_save_case` | Сохранить/дополнить кейс (draft при приближении к решению, final в конце) |
-| `onec_investigation_status` | Активный `case_id`, пути к заметкам Cases/Sessions |
-| `onec_obsidian_status` | Путь vault и список баз |
-| `onec_obsidian_set_context` | Имя папки ИБ без connect |
-| `onec_obsidian_save_requirements` | Лист требований в Requirements/ |
-| `onec_obsidian_save_session` | Заметка сессии (вместе с draft-кейсом) |
-| `onec_obsidian_append_session` | Дополнение заметки при уточнениях пользователя |
-| `onec_obsidian_prepare_requirements` | Контекст перед ЛТ (кейсы, справочники) |
-| `onec_obsidian_search_handbooks` | Поиск в справочниках конфигурации |
+| `onec-data_onec_welcome` | Приветствие: `formatted_user` + меню `question` (без MCP в чате); сброс подключения |
+| `onec-data_onec_connect` | Подключение к ИБ + **auto metadata** (COM → `metadata/cache/`) |
+| `onec-data_onec_check_connection` | Проверка подключения |
+| `onec-data_onec_list_infobases` | Список баз из ibases.v8i |
+| `onec-data_onec_metadata_status` | Статус кэша метаданных |
+| `onec-data_onec_metadata_search` | Поиск объектов по имени/синониму |
+| `onec-data_onec_metadata_object` | Карточка объекта (реквизиты, ТЧ, измерения) |
+| `onec-data_onec_refresh_metadata` | Принудительное обновление кэша |
+| `onec-data_onec_query` | Read-only запрос, JSON (max 5000 строк) |
+| `onec-data_onec_config_sources_register` | Регистрация каталога XML-исходников (спросить путь у пользователя) |
+| `onec-data_onec_dump_config` | Выгрузка конфигурации в файлы (partial/full, нужен connect) |
+| `onec-data_onec_config_read_module` | Чтение BSL из зарегистрированных XML |
+| `onec-data_onec_config_search_code` | Поиск по BSL в XML-исходниках |
+| `onec-data_onec_read_module` | Запасной: модуль через конфигуратор (COM не читает код) |
+| `onec-data_onec_web_research_status` | Статус ИТС; `agent_action` если нужен логин |
+| `onec-data_onec_its_configure` | Логин/пароль ИТС от пользователя + проверка |
+| `onec-data_onec_its_disconnect` | Сброс учётных данных ИТС |
+| `onec-data_onec_its_search` | Поиск в документации 1С:ИТС |
+| `onec-data_onec_its_fetch` | Загрузка текста статьи ИТС |
+| `onec-data_onec_web_search_forums` | Поиск по форумам (Infostart, Mista, …) |
+| `onec-data_onec_search_cases` | Поиск кейсов (JSON + Obsidian) |
+| `onec-data_onec_get_case` | Кейс по id |
+| `onec-data_onec_save_case` | Сохранить/дополнить кейс (draft при приближении к решению, final в конце) |
+| `onec-data_onec_investigation_status` | Активный `case_id`, пути к заметкам Cases/Sessions |
+| `onec-data_onec_obsidian_status` | Путь vault и список баз |
+| `onec-data_onec_obsidian_set_context` | Имя папки ИБ без connect |
+| `onec-data_onec_obsidian_save_requirements` | Лист требований в Requirements/ |
+| `onec-data_onec_obsidian_save_session` | Заметка сессии (вместе с draft-кейсом) |
+| `onec-data_onec_obsidian_append_session` | Дополнение заметки при уточнениях пользователя |
+| `onec-data_onec_obsidian_prepare_requirements` | Контекст перед ЛТ (кейсы, справочники) |
+| `onec-data_onec_obsidian_search_handbooks` | Поиск в справочниках конфигурации |
 
 Подключение через env (устанавливает launcher):
 
@@ -357,7 +359,7 @@ Start-1CAnalyst.cmd
 
 1. `.\scripts\Test-AnalystStack.ps1`
 2. `.\Start-1CAnalyst.ps1 -InfoBasePath "C:\Users\...\Documents\1C\DemoTrd" -User "Администратор" -Password "" -Problem "Почему заказ ТД00-000007 не отгружен полностью?"`
-3. В OpenCode agent `1c-analyst` выполняет `onec_check_connection` → `onec_query` по заказу и реализациям
+3. В OpenCode agent `1c-analyst` выполняет `onec-data_onec_check_connection` → `onec-data_onec_query` по заказу и реализациям
 
 ## Безопасность
 

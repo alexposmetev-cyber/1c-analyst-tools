@@ -23,9 +23,9 @@ description: Сохранение артефактов аналитика в Obs
 
 ## Контекст пути
 
-1. После **`onec_connect`** папка базы подставляется сама.
-2. Без connect — `onec_obsidian_set_context(database_name="...")` или параметр `database_name` в save_*.
-3. `onec_obsidian_status` — текущая папка и список баз в vault.
+1. После **`onec-data_onec_connect`** папка базы подставляется сама.
+2. Без connect — `onec-data_onec_obsidian_set_context(database_name="...")` или параметр `database_name` в save_*.
+3. `onec-data_onec_obsidian_status` — текущая папка и список баз в vault.
 
 Конфигурация (`configuration_name`) — в frontmatter заметок, не в пути каталогов.
 
@@ -35,13 +35,13 @@ description: Сохранение артефактов аналитика в Obs
 
 | Артефакт | Инструмент | Когда |
 |----------|------------|--------|
-| Кейс (draft/final) | `onec_save_case` | При приближении к решению (draft) и при финале (final); Obsidian + JSON |
-| Дополнение кейса | `onec_save_case(case_id=...)` | Новые вопросы, гипотезы, методы — в тот же файл |
-| Лист требований | `onec_obsidian_save_requirements` | После фазы A и B — **обновление того же файла** в сессии (не новые версии) + JSON-кейс |
-| Заметка сессии | `onec_obsidian_save_session` | Вместе с draft-кейсом: резюме + диалог |
-| Дополнение сессии | `onec_obsidian_append_session` | Уточнения пользователя в ту же заметку Sessions |
+| Кейс (draft/final) | `onec-data_onec_save_case` | При приближении к решению (draft) и при финале (final); Obsidian + JSON |
+| Дополнение кейса | `onec-data_onec_save_case(case_id=...)` | Новые вопросы, гипотезы, методы — в тот же файл |
+| Лист требований | `onec-data_onec_obsidian_save_requirements` | После фазы A и B — **обновление того же файла** в сессии (не новые версии) + JSON-кейс |
+| Заметка сессии | `onec-data_onec_obsidian_save_session` | Вместе с draft-кейсом: резюме + диалог |
+| Дополнение сессии | `onec-data_onec_obsidian_append_session` | Уточнения пользователя в ту же заметку Sessions |
 
-## onec_obsidian_save_requirements
+## onec-data_onec_obsidian_save_requirements
 
 - `body_markdown` — полный текст ЛТ по шаблону (§1–7, включая §2.1 ценность, §4.1–4.4, таблицу трудочасов).
 - `title` — заголовок задачи.
@@ -54,7 +54,7 @@ description: Сохранение артефактов аналитика в Obs
 
 После сохранения сообщи пользователю `relative_path` из ответа MCP.
 
-## onec_obsidian_save_session
+## onec-data_onec_obsidian_save_session
 
 - `summary` — 5–15 предложений: задача, режим (live/offline), итог, открытые вопросы.
 - `transcript_markdown` — опционально: хронология «Пользователь / Аналитик» или список ключевых решений.
@@ -62,7 +62,7 @@ description: Сохранение артефактов аналитика в Obs
 
 ## Поиск кейсов
 
-`onec_search_cases` ищет JSON в `cases/` и markdown в `.Obsidian/**/Cases/` (и legacy `Obsidian/`).
+`onec-data_onec_search_cases` ищет JSON в `cases/` и markdown в `.Obsidian/**/Cases/` (и legacy `Obsidian/`).
 
 ## Запрещено
 

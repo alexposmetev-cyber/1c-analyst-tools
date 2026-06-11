@@ -38,7 +38,7 @@ description: Оформление листа требований — Obsidian, 
 
 - Контекст привязан к **текущей базе** (`.Obsidian/{ИмяБазы}/`) и **имени конфигурации** из connect/метаданных.
 
-- Если пользователь переключил базу — `onec_disconnect` → новый `onec_connect`; не используйте кэш/кейсы другой ИБ.
+- Если пользователь переключил базу — `onec-data_onec_disconnect` → новый `onec-data_onec_connect`; не используйте кэш/кейсы другой ИБ.
 
 - В §4 и ответе указывайте только объекты, подтверждённые метаданными **этой** базы.
 
@@ -58,7 +58,7 @@ description: Оформление листа требований — Obsidian, 
 
 - В §4 — без лишнего жаргона разработчика (см. стиль ниже).
 
-- Передавать `platform_version` в `onec_connect` — платформа подбирается по ИБ и `1cestart.cfg` автоматически.
+- Передавать `platform_version` в `onec-data_onec_connect` — платформа подбирается по ИБ и `1cestart.cfg` автоматически.
 
 
 
@@ -80,7 +80,7 @@ description: Оформление листа требований — Obsidian, 
 
 ```
 
-onec_obsidian_prepare_requirements(task_description=..., configuration_name=...)
+onec-data_onec_obsidian_prepare_requirements(task_description=..., configuration_name=...)
 
 ```
 
@@ -104,7 +104,7 @@ onec_obsidian_prepare_requirements(task_description=..., configuration_name=...)
 
 
 
-При необходимости отдельно: `onec_obsidian_search_handbooks(query=...)`.
+При необходимости отдельно: `onec-data_onec_obsidian_search_handbooks(query=...)`.
 
 
 
@@ -124,15 +124,15 @@ onec_obsidian_prepare_requirements(task_description=..., configuration_name=...)
 
 
 
-1. **`onec_its_search`** / **`onec_its_fetch`** — платформа и конфигурация.
+1. **`onec-data_onec_its_search`** / **`onec-data_onec_its_fetch`** — платформа и конфигурация.
 
 2. Отраслевые **БИТ** (Управление медицинским центром, Стоматология, Айболит, Красота, Фитнес):
 
-   - **`onec_bitmedic_guidance`** → поиск на [info.bitmedic.ru](https://info.bitmedic.ru/) (`site:info.bitmedic.ru …`).
+   - **`onec-data_onec_bitmedic_guidance`** → поиск на [info.bitmedic.ru](https://info.bitmedic.ru/) (`site:info.bitmedic.ru …`).
 
    - На портале не всегда есть ответ по доработкам — не выдавать за факт без проверки в метаданных.
 
-3. **`onec_web_search_forums`** — только если ИТС/БИТ не дали ориентира; помечать как гипотезу.
+3. **`onec-data_onec_web_search_forums`** — только если ИТС/БИТ не дали ориентира; помечать как гипотезу.
 
 
 
@@ -144,11 +144,11 @@ onec_obsidian_prepare_requirements(task_description=..., configuration_name=...)
 
 
 
-- Skill **`1c-config-sources`**: **спросите**, есть ли уже XML-исходники → `onec_config_sources_register`.
+- Skill **`1c-config-sources`**: **спросите**, есть ли уже XML-исходники → `onec-data_onec_config_sources_register`.
 
-- Иначе после **`onec_connect`** — `onec_dump_config(mode=partial, objects=...)` или Full по согласию.
+- Иначе после **`onec-data_onec_connect`** — `onec-data_onec_dump_config(mode=partial, objects=...)` или Full по согласию.
 
-- **`onec_metadata_*`** — имена объектов; **`onec_config_search_code`** / **`onec_config_read_module`** — факты из BSL.
+- **`onec-data_onec_metadata_*`** — имена объектов; **`onec-data_onec_config_search_code`** / **`onec-data_onec_config_read_module`** — факты из BSL.
 
 - Код и метаданные — **только** текущей базы/каталога исходников.
 
@@ -204,7 +204,7 @@ onec_obsidian_prepare_requirements(task_description=..., configuration_name=...)
 
 3. **Источники контекста** — кейсы, справочники, ИТС, bitmedic (кратко)
 
-4. **`onec_obsidian_save_requirements`** — `phase="draft"`
+4. **`onec-data_onec_obsidian_save_requirements`** — `phase="draft"`
 
 
 
@@ -216,17 +216,17 @@ onec_obsidian_prepare_requirements(task_description=..., configuration_name=...)
 
 
 
-1. **Спросите путь к XML**, если ещё не спрашивали (`onec_config_sources_register`).
+1. **Спросите путь к XML**, если ещё не спрашивали (`onec-data_onec_config_sources_register`).
 
-2. При необходимости `onec_connect` → `onec_metadata_*` → `onec_dump_config(partial)` если файлов нет.
+2. При необходимости `onec-data_onec_connect` → `onec-data_onec_metadata_*` → `onec-data_onec_dump_config(partial)` если файлов нет.
 
-3. `onec_config_search_code` / `onec_config_read_module` — факты для §4.2–4.3.
+3. `onec-data_onec_config_search_code` / `onec-data_onec_config_read_module` — факты для §4.2–4.3.
 
-4. Обновить §1, §4, §7; **`onec_obsidian_save_requirements`** — `phase="final"`.
+4. Обновить §1, §4, §7; **`onec-data_onec_obsidian_save_requirements`** — `phase="final"`.
 
 
 
-**Не делать** без запроса: `onec_query` к боевым данным.
+**Не делать** без запроса: `onec-data_onec_query` к боевым данным.
 
 
 

@@ -77,7 +77,7 @@ def agent_hint_for_error(error_kind: str, register_script: str = "") -> str:
             "и пароль для этой базы (как в окне входа). Не упоминай COM, 1cestart.cfg и Register-1CCom."
         ),
         "external_denied": (
-            "AGENT_ACTION: COM зарегистрирован (onec_com_status ok), но пользователю 1С запрещено "
+            "AGENT_ACTION: COM зарегистрирован (onec-data_onec_com_status ok), но пользователю 1С запрещено "
             "внешнее (COM) подключение. Попроси другого пользователя с правом COM или настройку в "
             "конфигураторе (Administration / права пользователя). Register-1CCom.cmd НЕ нужен."
         ),
@@ -86,11 +86,11 @@ def agent_hint_for_error(error_kind: str, register_script: str = "") -> str:
             "если повторится — scripts\\Fix-AllPs1Utf8Bom.cmd и Restart MCP."
         ),
         "platform": (
-            "AGENT_ACTION: повтори onec_connect без platform_version. "
+            "AGENT_ACTION: повтори onec-data_onec_connect без platform_version. "
             "Не создавай 1cestart.cfg вручную — используется %APPDATA%\\1C\\1CEStart\\1cestart.cfg."
         ),
         "com": (
-            f"AGENT_ACTION: onec_com_status COM=false — регистрация comcntr.dll только с правами "
+            f"AGENT_ACTION: onec-data_onec_com_status COM=false — регистрация comcntr.dll только с правами "
             f"администратора Windows. Попроси IT выполнить {register_script or 'Register-1CCom.cmd'} "
             "или regsvr32 на comcntr.dll. Пользователь без админа сам не зарегистрирует. "
             "Предложи offline/research до решения IT. Если COM=true — Register-1CCom не нужен."
@@ -100,8 +100,8 @@ def agent_hint_for_error(error_kind: str, register_script: str = "") -> str:
             "Register-1CCom.cmd не нужен."
         ),
         "connect": (
-            "AGENT_ACTION: уточни у пользователя базу, логин и пароль; onec_connect без platform_version. "
-            "Если onec_com_status readyForConnect=true — Register-1CCom не предлагать."
+            "AGENT_ACTION: уточни у пользователя базу, логин и пароль; onec-data_onec_connect без platform_version. "
+            "Если onec-data_onec_com_status readyForConnect=true — Register-1CCom не предлагать."
         ),
     }
     return hints.get(error_kind, hints["connect"])

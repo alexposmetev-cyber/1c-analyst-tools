@@ -134,7 +134,7 @@ def metadata_status(
 ) -> dict[str, Any]:
     cache_dir = resolve_cache_dir(root, cache_relative)
     if not cache_dir:
-        return {"ready": False, "message": "Кэш метаданных не найден. Выполните onec_connect."}
+        return {"ready": False, "message": "Кэш метаданных не найден. Выполните onec-data_onec_connect."}
 
     manifest = load_manifest(cache_dir)
     if not manifest:
@@ -162,7 +162,7 @@ def metadata_status(
             payload["ready"] = False
             payload["message"] = (
                 "Метаданные не совпадают с текущей сессией. "
-                "Вызовите onec_refresh_metadata(force=true)."
+                "Вызовите onec-data_onec_refresh_metadata(force=true)."
             )
 
     return payload
@@ -191,7 +191,7 @@ def metadata_search(
 
     cache_dir = resolve_cache_dir(root, cache_relative)
     if not cache_dir:
-        raise RuntimeError("Кэш метаданных не найден. Сначала выполните onec_connect.")
+        raise RuntimeError("Кэш метаданных не найден. Сначала выполните onec-data_onec_connect.")
 
     needle = query.strip().lower()
     if not needle:
@@ -235,7 +235,7 @@ def metadata_object(
 
     cache_dir = resolve_cache_dir(root, cache_relative)
     if not cache_dir:
-        raise RuntimeError("Кэш метаданных не найден. Сначала выполните onec_connect.")
+        raise RuntimeError("Кэш метаданных не найден. Сначала выполните onec-data_onec_connect.")
 
     name = full_name.strip()
     if not name:

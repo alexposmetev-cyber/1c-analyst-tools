@@ -14,7 +14,7 @@ WELCOME_QUESTION_FOLLOWUP = (
 )
 
 WELCOME_ALREADY_SHOWN = (
-    "Приветствие в этой сессии уже было. Не вызывайте onec_welcome повторно — "
+    "Приветствие в этой сессии уже было. Не вызывайте onec-data_onec_welcome повторно — "
     "сразу question (title: «Чем помочь?») или ответьте пользователю коротко."
 )
 
@@ -70,7 +70,7 @@ def format_cases_reply(summaries: list[dict[str, Any]]) -> str:
     text = "Похожие кейсы:\n" + "\n".join(lines)
     text += (
         "\n\nВажно: текст кейса — только ориентир. Для ИТС и метаданных используйте "
-        "симптом пользователя из onec_declare_symptom, не подставляйте ошибку из кейса без подтверждения."
+        "симптом пользователя из onec-data_onec_declare_symptom, не подставляйте ошибку из кейса без подтверждения."
     )
     return text
 
@@ -106,7 +106,7 @@ def format_connection_status_reply(payload: dict[str, Any]) -> str:
     if not payload.get("session_saved"):
         return (
             "К базе не подключены. Для live-режима укажите базу, пользователя и пароль — "
-            "подключу через onec_connect."
+            "подключу через onec-data_onec_connect."
         )
 
     if payload.get("connected"):
@@ -119,7 +119,7 @@ def format_connection_status_reply(payload: dict[str, Any]) -> str:
             text += f", конфигурация {config}"
         return text + "."
 
-    return "Сохранённые параметры есть, но подключение не подтверждено — нужен onec_connect."
+    return "Сохранённые параметры есть, но подключение не подтверждено — нужен onec-data_onec_connect."
 
 
 def format_check_connection_reply(payload: dict[str, Any]) -> str:
@@ -164,7 +164,7 @@ def compact_search_payload(raw: dict[str, Any]) -> dict[str, Any]:
         query=raw.get("query", ""),
         agent_action=(
             "AGENT_ACTION: пользователю — только replyToUser. "
-            "Детали кейса: onec_get_case(case_id). matches в ответе нет намеренно."
+            "Детали кейса: onec-data_onec_get_case(case_id). matches в ответе нет намеренно."
         ),
     )
 
@@ -202,7 +202,7 @@ def format_metadata_status_reply(payload: dict[str, Any]) -> str:
         message = str(payload.get("message") or "").strip()
         if message:
             return message
-        return "Кэш метаданных не готов. Выполните onec_refresh_metadata после подключения."
+        return "Кэш метаданных не готов. Выполните onec-data_onec_refresh_metadata после подключения."
 
     name = str(payload.get("configurationName") or "конфигурация").strip()
     version = str(payload.get("version") or "").strip()

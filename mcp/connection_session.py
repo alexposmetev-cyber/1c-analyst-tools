@@ -200,7 +200,7 @@ def build_connection_args(
         args.extend(["-Server", server, "-Ref", ref])
     else:
         raise RuntimeError(
-            "Не задано подключение к базе. Вызовите onec_connect "
+            "Не задано подключение к базе. Вызовите onec-data_onec_connect "
             "(файловая база: info_base_path; серверная: server + ref)."
         )
 

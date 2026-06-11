@@ -193,18 +193,18 @@ def bridge_status_payload(session: dict[str, str] | None = None) -> dict[str, An
     )
 
     if payload["readyForQuery"]:
-        payload["message"] = "onec_query идёт через Bridge Agent (долгий COM)."
+        payload["message"] = "onec-data_onec_query идёт через Bridge Agent (долгий COM)."
     elif not payload.get("orchestratorOk"):
         payload["message"] = "Запустите bridge\\Start-Orchestrator.cmd"
     elif not payload.get("agentOnline"):
         payload["message"] = "Запустите bridge\\Start-BridgeAgent.cmd"
     elif session and not payload.get("sessionMatchesBridge"):
         payload["message"] = (
-            "ИБ в onec_connect не совпадает с bridge-agent.json — "
-            "onec_query через COM или обновите конфиг моста."
+            "ИБ в onec-data_onec_connect не совпадает с bridge-agent.json — "
+            "onec-data_onec_query через COM или обновите конфиг моста."
         )
     else:
-        payload["message"] = "Bridge настроен, ожидается onec_connect к той же ИБ."
+        payload["message"] = "Bridge настроен, ожидается onec-data_onec_connect к той же ИБ."
 
     return payload
 

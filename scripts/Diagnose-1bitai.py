@@ -143,7 +143,7 @@ def main() -> int:
     print(f"\n[2] Апстрим напрямую: POST {UPSTREAM}/v1/chat/completions")
     status, body, ctype = _post(f"{UPSTREAM}/v1/chat/completions", probe, key)
     ok, why = _verdict(status, body, ctype)
-    print(f"    HTTP {status} {ctype} → {(_green if ok else _red)(why)}")
+    print(f"    HTTP {status} {ctype} -> {(_green if ok else _red)(why)}")
     if not ok:
         ok_all = False
         print(f"    {_yellow('Сырой ответ (до 400 символов):')}\n    {body[:400]}")
