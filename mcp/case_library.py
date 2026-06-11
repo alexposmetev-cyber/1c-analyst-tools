@@ -14,6 +14,33 @@ def cases_dir(root: Path) -> Path:
     return root / "cases"
 
 
+# case_id используется как имя файла {case_id}.json. Допускаем только
+# безопасный набор символов, чтобы '../' или абсолютные пути не утекли.
+_CASE_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def _validate_case_id(case_id: str) -> str:
+    case_id = case_id.strip()
+    if not case_id:
+        raise ValueError("case_id обязателен.")
+    if not _CASE_ID_RE.match(case_id) or case_id in {".", ".."}:
+        raise ValueError(
+            f"Недопустимый case_id: {case_id!r}. "
+            "Разрешены латиница, цифры, точка, дефис и подчёркивание."
+        )
+    return case_id
+
+
+def _case_path(root: Path, case_id: str) -> Path:
+    case_id = _validate_case_id(case_id)
+    directory = cases_dir(root).resolve()
+    path = (directory / f"{case_id}.json").resolve()
+    # Гарантия: итоговый путь действительно внутри cases/.
+    if directory not in path.parents:
+        raise ValueError(f"case_id выходит за пределы каталога cases: {case_id!r}")
+    return path
+
+
 def index_path(root: Path) -> Path:
     return cases_dir(root) / "index.json"
 
@@ -189,7 +216,7 @@ def save_case(
 
     directory = cases_dir(root)
     directory.mkdir(parents=True, exist_ok=True)
-    case_path = directory / f"{case_id}.json"
+    case_path = _case_path(root, case_id)
     case_path.write_text(json.dumps(case, ensure_ascii=False, indent=2), encoding="utf-8")
 
     preview = str(case.get("correctSolution") or case.get("contextSummary") or case.get("symptom", ""))[:240]
@@ -211,13 +238,9 @@ def save_case(
 
 
 def get_case(root: Path, case_id: str) -> dict[str, Any]:
-    case_id = case_id.strip()
-    if not case_id:
-        raise ValueError("case_id обязателен.")
-
-    case_path = cases_dir(root) / f"{case_id}.json"
+    case_path = _case_path(root, case_id)
     if not case_path.is_file():
-        raise ValueError(f"Кейс '{case_id}' не найден.")
+        raise ValueError(f"Кейс '{case_id.strip()}' не найден.")
 
     data = json.loads(case_path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):

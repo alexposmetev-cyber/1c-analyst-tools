@@ -99,6 +99,11 @@ def count_xml_files(path: Path) -> int:
     return sum(1 for _ in path.rglob("*.xml"))
 
 
+# Имя типа/объекта 1С: буквы (вкл. кириллицу), цифры, подчёркивание.
+# Точки, слэши, .. — запрещены, чтобы full_name не превратился в путь.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё0-9_]*$")
+
+
 def parse_full_name(full_name: str) -> tuple[str, str]:
     text = full_name.strip()
     match = re.match(r"^([^.]+)\.(.+)$", text)
@@ -106,7 +111,15 @@ def parse_full_name(full_name: str) -> tuple[str, str]:
         raise ValueError(
             f"Некорректное полное имя: {full_name}. Ожидается, например, Документ.ЗаказКлиента."
         )
-    return match.group(1), match.group(2)
+    type_prefix, object_name = match.group(1).strip(), match.group(2).strip()
+    # Жёсткая проверка: только допустимые идентификаторы 1С.
+    # Это закрывает path traversal вида Документ.../../../secret.
+    if not _IDENTIFIER_RE.match(type_prefix) or not _IDENTIFIER_RE.match(object_name):
+        raise ValueError(
+            f"Недопустимое имя объекта: {full_name!r}. "
+            "Разрешены буквы, цифры и подчёркивание (например, Документ.ЗаказКлиента)."
+        )
+    return type_prefix, object_name
 
 
 def module_relative_path(full_name: str, module_part: str = "manager") -> str:

@@ -5,10 +5,24 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
+import sys
 from pathlib import Path
 from typing import Any
 
 SESSION_FILENAME = ".onec-session.json"
+
+
+def _restrict_file_permissions(path: Path) -> None:
+    """Ограничивает доступ к файлу с секретами только владельцем (best-effort)."""
+    try:
+        if sys.platform == "win32":
+            # На Windows полагаемся на DPAPI-шифрование содержимого;
+            # ACL менять не пытаемся, чтобы не сломать корпоративные политики.
+            return
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
+    except OSError:
+        pass
 
 
 def _normalize_platform_major(version: str) -> str:
@@ -41,7 +55,12 @@ def load_session(root: Path) -> dict[str, Any] | None:
     if not isinstance(data, dict):
         return None
 
-    return _normalize_session(data)
+    normalized = _normalize_session(data)
+    if normalized.get("password"):
+        from secret_store import decrypt_secret
+
+        normalized["password"] = decrypt_secret(normalized["password"])
+    return normalized
 
 
 def repair_session_file(root: Path) -> bool:
@@ -71,10 +90,17 @@ def repair_session_file(root: Path) -> bool:
 def save_session(root: Path, session: dict[str, Any]) -> None:
     path = _session_path(root)
     payload = _normalize_session(session)
+    # Пароль не хранится открытым текстом: шифруем DPAPI (Windows),
+    # на остальных ОС помечается как plain.
+    if payload.get("password"):
+        from secret_store import encrypt_secret
+
+        payload["password"] = encrypt_secret(payload["password"])
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    _restrict_file_permissions(path)
 
 
 def clear_session(root: Path) -> None:

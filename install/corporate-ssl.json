@@ -1,6 +1,6 @@
 {
-  "enabled": true,
-  "description": "Корпоративный MITM/прокси: не проверять TLS для ИТС, форумов, 1bit AI и загрузки OpenCode",
+  "enabled": false,
+  "description": "Корпоративный MITM/прокси: ОТКЛЮЧЕНИЕ проверки TLS. ВНИМАНИЕ: включайте (enabled=true) ТОЛЬКО если в вашей сети действительно стоит MITM-прокси с собственным корневым сертификатом. На обычной сети это снижает безопасность (man-in-the-middle). Лучше импортировать корневой сертификат компании в хранилище Windows и оставить enabled=false.",
   "verify_ssl": false,
   "environment": {
     "ONEC_WEB_VERIFY_SSL": "false",

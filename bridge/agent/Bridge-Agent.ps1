@@ -14,6 +14,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# stdout/stderr в UTF-8: PS 5.1 по умолчанию пишет в OEM (cp866),
+# а Python читает поток как UTF-8.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
+
 . (Join-Path $PSScriptRoot 'BridgeCom.ps1')
 
 function Write-BridgeLog {
@@ -84,16 +91,19 @@ function Invoke-BridgeWebJson {
         [Parameter(Mandatory = $true)]
         [string]$Uri,
         [string]$BodyJson = '',
-        [int]$TimeoutSec = 120
+        [int]$TimeoutSec = 120,
+        [hashtable]$Headers = @{}
     )
 
     if ($Method -eq 'Get') {
-        $response = Invoke-WebRequest -Uri $Uri -Method Get -UseBasicParsing -TimeoutSec $TimeoutSec
+        $response = Invoke-WebRequest -Uri $Uri -Method Get -Headers $Headers `
+            -UseBasicParsing -TimeoutSec $TimeoutSec
     }
     else {
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($BodyJson)
         $response = Invoke-WebRequest -Uri $Uri -Method Post -Body $bytes `
-            -ContentType 'application/json; charset=utf-8' -UseBasicParsing -TimeoutSec $TimeoutSec
+            -Headers $Headers -ContentType 'application/json; charset=utf-8' `
+            -UseBasicParsing -TimeoutSec $TimeoutSec
     }
 
     $text = Get-BridgeWebResponseUtf8Text -Response $response
@@ -108,13 +118,14 @@ function Invoke-BridgeOrchestratorPoll {
         [int]$WaitSec
     )
 
-    $uri = '{0}/api/bridge/poll?bridge_id={1}&bridge_token={2}&wait_sec={3}' -f `
+    $uri = '{0}/api/bridge/poll?bridge_id={1}&wait_sec={2}' -f `
         $BaseUrl.TrimEnd('/'), `
         [uri]::EscapeDataString($BridgeId), `
-        [uri]::EscapeDataString($BridgeToken), `
         $WaitSec
 
-    return Invoke-BridgeWebJson -Method Get -Uri $uri -TimeoutSec ($WaitSec + 15)
+    return Invoke-BridgeWebJson -Method Get -Uri $uri `
+        -Headers @{ 'X-Bridge-Token' = $BridgeToken } `
+        -TimeoutSec ($WaitSec + 15)
 }
 
 function Submit-BridgeJobResult {

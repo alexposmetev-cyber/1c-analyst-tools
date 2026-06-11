@@ -204,6 +204,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# stdout/stderr в UTF-8: Windows PowerShell 5.1 пишет в перенаправленный поток
+# в OEM-кодировке (cp866), а mcp/server.py читает его как UTF-8 — иначе кириллица бьётся.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
+
 . (Join-Path $PSScriptRoot 'Lib\1CInfoBase.ps1')
 . (Join-Path $PSScriptRoot 'Lib\1CInfobaseVersion.ps1')
 . (Join-Path $PSScriptRoot 'Lib\1CPlatform.ps1')

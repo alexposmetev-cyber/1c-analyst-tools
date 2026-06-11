@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
-"""Локальный прокси к 1bit AI: принудительно отключает streaming для native tool_calls."""
+"""Локальный прокси к 1bit AI: отключает streaming для native tool_calls,
+чинит «битые» ответы апстрима (BOM, мусор вокруг JSON, SSE вместо JSON)
+и шлёт keepalive, чтобы OpenCode не отваливался по таймауту на долгой генерации."""
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import ssl
 import sys
+import threading
 import time
 from pathlib import Path
+from typing import Any
+
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
 
 UPSTREAM = os.environ.get("ONEBITAI_UPSTREAM", "https://api.1bitai.ru").rstrip("/")
 HOST = os.environ.get("ONEBITAI_PROXY_HOST", "127.0.0.1")
 PORT = int(os.environ.get("ONEBITAI_PROXY_PORT", "18765"))
+KEEPALIVE_SECONDS = float(os.environ.get("ONEBITAI_KEEPALIVE_SECONDS", "15"))
 
 
 def _resolve_api_key() -> str:
@@ -28,7 +34,7 @@ def _resolve_api_key() -> str:
     local_config = project_root / "opencode.local.json"
     if local_config.is_file():
         try:
-            data = json.loads(local_config.read_text(encoding="utf-8"))
+            data = json.loads(local_config.read_text(encoding="utf-8-sig"))
             key = (
                 data.get("provider", {})
                 .get("1bitai", {})
@@ -47,11 +53,26 @@ def _resolve_api_key() -> str:
     return ""
 
 
-ALLOWED_MODELS = {
-    "qwen3-coder": "ollama/qwen3-coder:latest",
-    "qwen3.5-35b": "ollama/qwen3.5:35b",
-    "default": "ollama/qwen3-coder:latest",
-}
+def _load_model_map() -> dict[str, str]:
+    """Карта моделей: env ONEBITAI_MODEL_MAP (JSON) перекрывает дефолт."""
+    default = {
+        "qwen3-coder": "ollama/qwen3-coder:latest",
+        "qwen3.5-35b": "ollama/qwen3.5:35b",
+        "default": "ollama/qwen3-coder:latest",
+    }
+    raw = os.environ.get("ONEBITAI_MODEL_MAP", "").strip()
+    if raw:
+        try:
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                default.update({str(k): str(v) for k, v in data.items()})
+        except json.JSONDecodeError:
+            _log("ONEBITAI_MODEL_MAP не парсится как JSON — игнорирую")
+    return default
+
+
+ALLOWED_MODELS = _load_model_map()
+
 DROP_PARAMS = (
     "response_format",
     "reasoning_effort",
@@ -69,6 +90,8 @@ DROP_PARAMS = (
     "logit_bias",
 )
 MAX_RETRIES = 3
+# Эти статусы ретраить бессмысленно: ключ/права/маршрут не изменятся.
+NO_RETRY_STATUSES = {400, 401, 403, 404, 405, 413, 422}
 
 
 def _log(message: str) -> None:
@@ -79,8 +102,6 @@ def _ssl_verify_enabled() -> bool:
     value = os.environ.get("ONEBITAI_VERIFY_SSL", "").strip().lower()
     if value in {"0", "false", "no"}:
         return False
-    if value in {"1", "true", "yes"}:
-        return True
     return True
 
 
@@ -92,6 +113,138 @@ def _ssl_context() -> ssl.SSLContext | None:
     context.verify_mode = ssl.CERT_NONE
     return context
 
+
+# ---------------------------------------------------------------------------
+# Лечение «битого JSON» от апстрима
+# ---------------------------------------------------------------------------
+
+_SSE_DATA_RE = re.compile(r"^data:\s*(.*)$", re.MULTILINE)
+
+
+def _strip_junk(text: str) -> str:
+    """Убирает BOM, нулевые байты и пробельный мусор вокруг полезной нагрузки."""
+    return text.lstrip("\ufeff\u200b\x00 \t\r\n").rstrip("\x00 \t\r\n")
+
+
+def _extract_first_json(text: str) -> dict[str, Any] | None:
+    """Достаёт первый JSON-объект, даже если вокруг него мусор/логи/конкатенация."""
+    text = _strip_junk(text)
+    decoder = json.JSONDecoder()
+    idx = text.find("{")
+    while idx != -1:
+        try:
+            payload, _end = decoder.raw_decode(text[idx:])
+            if isinstance(payload, dict):
+                return payload
+        except json.JSONDecodeError:
+            pass
+        idx = text.find("{", idx + 1)
+    return None
+
+
+def _assemble_sse_completion(text: str) -> dict[str, Any] | None:
+    """Собирает chat.completion из SSE-потока (когда апстрим игнорирует stream=false)."""
+    message: dict[str, Any] = {"role": "assistant", "content": ""}
+    tool_calls: dict[int, dict[str, Any]] = {}
+    finish_reason: str | None = None
+    meta: dict[str, Any] = {}
+    saw_chunk = False
+
+    for match in _SSE_DATA_RE.finditer(text):
+        data_raw = match.group(1).strip()
+        if not data_raw or data_raw == "[DONE]":
+            continue
+        try:
+            chunk = json.loads(data_raw)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(chunk, dict):
+            continue
+        saw_chunk = True
+        for key in ("id", "created", "model"):
+            if chunk.get(key) and key not in meta:
+                meta[key] = chunk[key]
+        choices = chunk.get("choices")
+        if not isinstance(choices, list) or not choices:
+            continue
+        choice = choices[0] if isinstance(choices[0], dict) else {}
+        delta = choice.get("delta") or choice.get("message") or {}
+        if not isinstance(delta, dict):
+            delta = {}
+        if delta.get("role"):
+            message["role"] = delta["role"]
+        content = delta.get("content")
+        if isinstance(content, str):
+            message["content"] += content
+        for tc in delta.get("tool_calls") or []:
+            if not isinstance(tc, dict):
+                continue
+            index = int(tc.get("index", 0))
+            slot = tool_calls.setdefault(
+                index,
+                {"id": None, "type": "function", "function": {"name": "", "arguments": ""}},
+            )
+            if tc.get("id"):
+                slot["id"] = tc["id"]
+            if tc.get("type"):
+                slot["type"] = tc["type"]
+            fn = tc.get("function") or {}
+            if isinstance(fn, dict):
+                if fn.get("name"):
+                    slot["function"]["name"] = fn["name"]
+                if isinstance(fn.get("arguments"), str):
+                    slot["function"]["arguments"] += fn["arguments"]
+        if choice.get("finish_reason"):
+            finish_reason = choice["finish_reason"]
+
+    if not saw_chunk:
+        return None
+    if tool_calls:
+        message["tool_calls"] = [tool_calls[k] for k in sorted(tool_calls)]
+        if not message["content"]:
+            message["content"] = None
+    return {
+        "id": meta.get("id", "sse-assembled"),
+        "object": "chat.completion",
+        "created": meta.get("created", int(time.time())),
+        "model": meta.get("model", ""),
+        "choices": [
+            {
+                "index": 0,
+                "message": message,
+                "finish_reason": finish_reason or ("tool_calls" if tool_calls else "stop"),
+            }
+        ],
+    }
+
+
+def _repair_chat_payload(payload: bytes, content_type: str) -> tuple[bytes, str, dict[str, Any] | None]:
+    """Нормализует ответ chat/completions: BOM/мусор, SSE вместо JSON.
+
+    Возвращает (payload, content_type, completion_dict_или_None)."""
+    text = payload.decode("utf-8", "replace")
+
+    looks_like_sse = "text/event-stream" in (content_type or "") or text.lstrip().startswith("data:")
+    if looks_like_sse:
+        completion = _assemble_sse_completion(text)
+        if completion is not None:
+            _log("апстрим вернул SSE при stream=false — собрал chat.completion из чанков")
+            fixed = json.dumps(completion, ensure_ascii=False).encode("utf-8")
+            return fixed, "application/json", completion
+
+    completion = _extract_first_json(text)
+    if completion is not None:
+        fixed = json.dumps(completion, ensure_ascii=False).encode("utf-8")
+        if fixed != payload.strip():
+            _log("ответ апстрима содержал мусор вокруг JSON — нормализовал")
+        return fixed, "application/json", completion
+
+    return payload, content_type or "application/json", None
+
+
+# ---------------------------------------------------------------------------
+# Санация запроса (как в исходнике)
+# ---------------------------------------------------------------------------
 
 def _has_tool_history(messages: list[Any]) -> bool:
     for message in messages:
@@ -142,7 +295,7 @@ def _sanitize_chat_data(data: dict[str, Any], aggressive: bool = False) -> dict[
         if mapped:
             data["model"] = mapped
         elif model not in ALLOWED_MODELS.values() and not model.startswith("ollama/"):
-            _log(f"подозрительная model={model!r}, подставляем ollama/qwen3-coder:latest")
+            _log(f"подозрительная model={model!r}, подставляем {ALLOWED_MODELS['default']}")
             data["model"] = ALLOWED_MODELS["default"]
 
     for param in DROP_PARAMS:
@@ -184,14 +337,18 @@ def _sanitize_chat_data(data: dict[str, Any], aggressive: bool = False) -> dict[
     return data
 
 
-def _is_upstream_failure(status: int, payload: bytes) -> bool:
+def _is_upstream_failure(status: int, payload: bytes, completion: dict[str, Any] | None) -> bool:
     if status >= 400:
         return True
-    text = payload.decode("utf-8", "replace")
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        return "Operation not allowed" in text
+
+    data = completion
+    text = ""
+    if data is None:
+        text = payload.decode("utf-8", "replace")
+        try:
+            data = json.loads(_strip_junk(text))
+        except json.JSONDecodeError:
+            return "Operation not allowed" in text
 
     if isinstance(data.get("error"), dict):
         return True
@@ -208,9 +365,13 @@ def _is_upstream_failure(status: int, payload: bytes) -> bool:
             stripped = content.strip()
             if stripped.startswith("{") or len(stripped) < 200:
                 return True
+        # Валидный ответ ассистента — успех; маркеры дальше не проверяем,
+        # иначе ловим ложные срабатывания на словах вроде "content filtering" в тексте ответа.
         if content or message.get("role") == "assistant":
             return False
 
+    if not text:
+        text = payload.decode("utf-8", "replace")
     markers = (
         "Operation not allowed",
         "llm_call_failed",
@@ -243,12 +404,18 @@ def _forward(method: str, path: str, body: bytes | None, headers: dict[str, str]
     except urllib.error.HTTPError as error:
         payload = error.read()
         return error.code, payload, error.headers.get_content_type() if error.headers else "application/json"
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        body_err = json.dumps(
+            {"error": {"message": f"proxy: upstream недоступен: {error}", "type": "upstream_unreachable"}},
+            ensure_ascii=False,
+        ).encode("utf-8")
+        return 502, body_err, "application/json"
 
 
 def _build_chat_body(raw: bytes, aggressive: bool) -> tuple[bytes, bool]:
     """Готовит тело chat/completions для upstream и возвращает флаг stream клиента."""
     try:
-        data: dict[str, Any] = json.loads(raw.decode("utf-8"))
+        data: dict[str, Any] = json.loads(raw.decode("utf-8-sig"))
     except (json.JSONDecodeError, UnicodeDecodeError):
         return raw, False
 
@@ -266,21 +433,30 @@ def _forward_with_retry(
     body: bytes | None,
     headers: dict[str, str],
     raw_chat_body: bytes | None = None,
-) -> tuple[int, bytes, str]:
-    last: tuple[int, bytes, str] = (502, b"", "application/json")
+) -> tuple[int, bytes, str, dict[str, Any] | None]:
+    is_chat = raw_chat_body is not None
+    last: tuple[int, bytes, str, dict[str, Any] | None] = (502, b"", "application/json", None)
     for attempt in range(1, MAX_RETRIES + 1):
         payload_body = body
-        if raw_chat_body is not None:
+        if is_chat:
             payload_body, _ = _build_chat_body(raw_chat_body, aggressive=(attempt > 1))
         status, payload, content_type = _forward(method, path, payload_body, headers)
-        last = (status, payload, content_type)
-        if not _is_upstream_failure(status, payload):
-            return status, payload, content_type
+
+        completion: dict[str, Any] | None = None
+        if is_chat and status == 200:
+            payload, content_type, completion = _repair_chat_payload(payload, content_type)
+
+        last = (status, payload, content_type, completion)
+        if not _is_upstream_failure(status, payload, completion):
+            return last
         preview = payload.decode("utf-8", "replace")[:200]
         _log(
             f"upstream fail attempt {attempt}/{MAX_RETRIES} "
             f"aggressive={attempt > 1}: HTTP {status} {preview}"
         )
+        if status in NO_RETRY_STATUSES:
+            _log(f"HTTP {status} — ретраи не помогут, отдаю клиенту как есть")
+            return last
         if attempt < MAX_RETRIES:
             time.sleep(0.8 * attempt)
     return last
@@ -298,7 +474,8 @@ def _completion_to_sse(completion: dict[str, Any]) -> bytes:
         "created": completion.get("created", 0),
         "model": completion.get("model", ""),
     }
-    choice = completion["choices"][0]
+    choices = completion.get("choices") or [{}]
+    choice = choices[0] if isinstance(choices[0], dict) else {}
     message = choice.get("message") or {}
     finish_reason = choice.get("finish_reason")
 
@@ -381,44 +558,102 @@ class ProxyHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
         self.wfile.flush()
 
+    def _read_body(self) -> bytes | None:
+        """Читает тело запроса; chunked не поддерживаем — честно отвечаем 411."""
+        if (self.headers.get("Transfer-Encoding") or "").lower() == "chunked":
+            self._send(
+                411,
+                json.dumps(
+                    {"error": {"message": "proxy: chunked body не поддерживается, нужен Content-Length"}},
+                    ensure_ascii=False,
+                ).encode("utf-8"),
+                "application/json",
+            )
+            return None
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        return self.rfile.read(length) if length else b""
+
     def do_GET(self) -> None:
-        status, payload, content_type = _forward_with_retry("GET", self.path, None, dict(self.headers))
+        status, payload, content_type, _ = _forward_with_retry("GET", self.path, None, dict(self.headers))
         self._send(status, payload, content_type)
 
     def do_POST(self) -> None:
-        length = int(self.headers.get("Content-Length", "0") or 0)
-        raw_body = self.rfile.read(length) if length else b""
-        client_stream = False
+        raw_body = self._read_body()
+        if raw_body is None:
+            return
         is_chat = self.path.startswith("/v1/chat/completions") or self.path == "/chat/completions"
-        if is_chat:
-            _, client_stream = _build_chat_body(raw_body, aggressive=False)
-            status, payload, content_type = _forward_with_retry(
-                "POST",
-                self.path,
-                None,
-                dict(self.headers),
-                raw_chat_body=raw_body,
+
+        if not is_chat:
+            status, payload, content_type, _ = _forward_with_retry(
+                "POST", self.path, raw_body, dict(self.headers)
             )
-        else:
-            status, payload, content_type = _forward_with_retry(
-                "POST",
-                self.path,
-                raw_body,
-                dict(self.headers),
+            self._send(status, payload, content_type)
+            return
+
+        _, client_stream = _build_chat_body(raw_body, aggressive=False)
+
+        if not client_stream:
+            status, payload, content_type, _ = _forward_with_retry(
+                "POST", self.path, None, dict(self.headers), raw_chat_body=raw_body
             )
-        if (
-            client_stream
-            and status == 200
-            and (self.path.startswith("/v1/chat/completions") or self.path == "/chat/completions")
-        ):
+            self._send(status, payload, content_type)
+            return
+
+        # Клиент просит stream: сразу открываем SSE и шлём keepalive-комментарии,
+        # пока ждём полного ответа от апстрима — иначе OpenCode/браузер рвёт соединение.
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "close")
+        self.end_headers()
+
+        result: dict[str, Any] = {}
+        done = threading.Event()
+
+        def _worker() -> None:
             try:
-                completion = json.loads(payload.decode("utf-8"))
-                if completion.get("object") == "chat.completion":
-                    payload = _completion_to_sse(completion)
-                    content_type = "text/event-stream; charset=utf-8"
-            except (json.JSONDecodeError, UnicodeDecodeError, KeyError, IndexError, TypeError):
-                pass
-        self._send(status, payload, content_type)
+                result["value"] = _forward_with_retry(
+                    "POST", self.path, None, dict(self.headers), raw_chat_body=raw_body
+                )
+            finally:
+                done.set()
+
+        threading.Thread(target=_worker, daemon=True).start()
+        try:
+            while not done.wait(KEEPALIVE_SECONDS):
+                self.wfile.write(b": keepalive\n\n")
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            _log("клиент закрыл соединение во время ожидания апстрима")
+            return
+
+        status, payload, content_type, completion = result.get(
+            "value", (502, b"", "application/json", None)
+        )
+
+        if status == 200 and completion is None:
+            try:
+                candidate = json.loads(payload.decode("utf-8-sig"))
+                if isinstance(candidate, dict) and candidate.get("object") == "chat.completion":
+                    completion = candidate
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                completion = None
+
+        try:
+            if status == 200 and isinstance(completion, dict) and completion.get("choices"):
+                self.wfile.write(_completion_to_sse(completion))
+            else:
+                # Ошибку тоже отдаём в рамках открытого SSE, иначе клиент повиснет.
+                err_text = payload.decode("utf-8", "replace")[:1000]
+                self.wfile.write(
+                    _sse_event(
+                        {"error": {"message": f"upstream HTTP {status}: {err_text}", "code": status}}
+                    ).encode("utf-8")
+                )
+                self.wfile.write(b"data: [DONE]\n\n")
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            _log("клиент закрыл соединение при отдаче ответа")
 
 
 def main() -> int:

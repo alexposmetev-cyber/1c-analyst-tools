@@ -29,7 +29,16 @@ def load_web_file(root: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError):
         return {}
 
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+
+    # Расшифровываем пароль ИТС, если он хранится зашифрованным.
+    its = data.get("its")
+    if isinstance(its, dict) and its.get("password"):
+        from secret_store import decrypt_secret
+
+        its["password"] = decrypt_secret(str(its["password"]))
+    return data
 
 
 def save_its_credentials(root: Path, user: str, password: str) -> dict[str, Any]:
@@ -44,7 +53,9 @@ def save_its_credentials(root: Path, user: str, password: str) -> dict[str, Any]
     if not isinstance(its, dict):
         its = {}
     its["user"] = user
-    its["password"] = password
+    from secret_store import encrypt_secret
+
+    its["password"] = encrypt_secret(password)
     payload["its"] = its
 
     web_config_path(root).write_text(

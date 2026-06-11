@@ -1,0 +1,17 @@
+# Стабильные переводы строк. BOM для .ps1 — через scripts/Fix-AllPs1Utf8Bom.ps1 после clone.
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+
+# cmd-файлы — CRLF, без BOM (BOM ломает .cmd).
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Python и текст — LF.
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+
+# Бинарники не трогаем.
+*.exe binary
+*.dll binary

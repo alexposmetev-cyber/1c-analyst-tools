@@ -9,10 +9,33 @@ import uuid
 from collections import deque
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="1C Bridge Orchestrator", version="0.1.0")
+
+# Завершённые задачи держим ограниченное время, иначе _job_store растёт без предела.
+JOB_RETENTION_SECONDS = 3600.0
+JOB_STORE_MAX = 5000
+
+
+def _purge_old_jobs_locked() -> None:
+    """Удаляет завершённые задачи старше TTL. Вызывать под _lock."""
+    now = time.time()
+    stale = [
+        jid
+        for jid, job in _job_store.items()
+        if job.get("status") in {"ok", "error", "failed"}
+        and now - float(job.get("finished_at") or job.get("created_at") or now) > JOB_RETENTION_SECONDS
+    ]
+    for jid in stale:
+        _job_store.pop(jid, None)
+    # Жёсткий предел на случай всплеска: режем самые старые.
+    if len(_job_store) > JOB_STORE_MAX:
+        for jid, _ in sorted(_job_store.items(), key=lambda kv: kv[1].get("created_at", 0))[
+            : len(_job_store) - JOB_STORE_MAX
+        ]:
+            _job_store.pop(jid, None)
 
 _lock = threading.Lock()
 _bridges: dict[str, dict[str, Any]] = {}
@@ -45,7 +68,9 @@ class JobResultRequest(BaseModel):
 def _verify_bridge(bridge_id: str, bridge_token: str) -> None:
     with _lock:
         bridge = _bridges.get(bridge_id)
-    if not bridge or bridge.get("token") != bridge_token:
+    expected = bridge.get("token") if bridge else ""
+    # secrets.compare_digest — защита от timing-атак по токену.
+    if not bridge or not secrets.compare_digest(str(expected), str(bridge_token)):
         raise HTTPException(status_code=401, detail="Неверный bridge_id или bridge_token")
 
 
@@ -79,10 +104,13 @@ def register_bridge(body: BridgeRegisterRequest) -> dict[str, Any]:
 @app.get("/api/bridge/poll")
 def poll_job(
     bridge_id: str = Query(..., min_length=1),
-    bridge_token: str = Query(..., min_length=1),
+    bridge_token: str = Query("", min_length=0),
     wait_sec: int = Query(25, ge=0, le=60),
+    x_bridge_token: str = Header(default=""),
 ) -> dict[str, Any]:
-    _verify_bridge(bridge_id, bridge_token)
+    # Предпочитаем токен из заголовка: query-string оседает в логах прокси.
+    token = x_bridge_token or bridge_token
+    _verify_bridge(bridge_id, token)
 
     deadline = time.time() + wait_sec
     while True:
@@ -131,6 +159,7 @@ def enqueue_job(body: EnqueueRequest) -> dict[str, Any]:
     with _lock:
         _job_queues.setdefault(body.bridge_id, deque()).append(job)
         _job_store[job_id] = job
+        _purge_old_jobs_locked()
     return {"status": "queued", "job_id": job_id, "job": job}
 
 
